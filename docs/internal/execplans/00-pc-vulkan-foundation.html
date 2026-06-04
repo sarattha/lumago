@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ExecPlan 00 - PC Vulkan Foundation</title>
+  <style>
+    :root { color-scheme: light dark; --bg: #f7f7f4; --ink: #1f2933; --muted: #5f6b76; --card: #ffffff; --line: #d9ddd6; --accent: #176b87; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #111418; --ink: #eef2f3; --muted: #a9b2b8; --card: #1a2026; --line: #313942; --accent: #68b8d6; } }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); line-height: 1.55; }
+    main { max-width: 980px; margin: 0 auto; padding: 40px 20px 64px; }
+    header, section { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 24px; margin-bottom: 18px; }
+    h1, h2 { margin: 0 0 12px; line-height: 1.15; }
+    h1 { font-size: 2rem; }
+    h2 { font-size: 1.2rem; color: var(--accent); }
+    p { margin: 0 0 12px; }
+    ul { margin: 0; padding-left: 1.4rem; }
+    li { margin: 8px 0; }
+    label { cursor: pointer; }
+    input[type="checkbox"] { margin-right: 10px; transform: translateY(1px); }
+    .meta { color: var(--muted); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
+    .note { border-left: 4px solid var(--accent); padding-left: 14px; color: var(--muted); }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="meta">LumaGo ExecPlan 00</p>
+    <h1>PC Vulkan Foundation</h1>
+    <p>Create the minimum desktop runtime that opens a window, initializes Vulkan, and renders one textured quad through the renderer abstraction.</p>
+  </header>
+
+  <section>
+    <h2>Execution Checklist</h2>
+    <ul>
+      <li><label><input type="checkbox">Choose and document the desktop windowing dependency for PC builds.</label></li>
+      <li><label><input type="checkbox">Add a desktop platform package that creates, polls, and closes a window.</label></li>
+      <li><label><input type="checkbox">Add a fixed update/draw loop to the app lifecycle without exposing platform details to game code.</label></li>
+      <li><label><input type="checkbox">Create Vulkan instance setup with validation layers enabled in development builds.</label></li>
+      <li><label><input type="checkbox">Select a physical device and create a logical device with graphics and present queues.</label></li>
+      <li><label><input type="checkbox">Create swapchain images, image views, and recreate them on window resize.</label></li>
+      <li><label><input type="checkbox">Create command pools, command buffers, semaphores, and fences for frames in flight.</label></li>
+      <li><label><input type="checkbox">Create minimal buffer and image upload helpers for a quad vertex buffer and one texture.</label></li>
+      <li><label><input type="checkbox">Compile placeholder shaders to SPIR-V or add a documented shader compilation command.</label></li>
+      <li><label><input type="checkbox">Render one textured quad to the swapchain using a Vulkan renderer implementation.</label></li>
+      <li><label><input type="checkbox">Keep Vulkan types inside the Vulkan backend; game-facing packages continue to use engine types.</label></li>
+      <li><label><input type="checkbox">Capture the first frame in RenderDoc and record any setup instructions.</label></li>
+    </ul>
+  </section>
+
+  <section class="grid">
+    <div>
+      <h2>Acceptance Checklist</h2>
+      <ul>
+        <li><label><input type="checkbox">A desktop window opens and remains responsive until closed.</label></li>
+        <li><label><input type="checkbox">A textured quad is visible in the window.</label></li>
+        <li><label><input type="checkbox">The frame can be captured in RenderDoc.</label></li>
+        <li><label><input type="checkbox">The app runs a fixed update plus draw loop.</label></li>
+        <li><label><input type="checkbox">The existing NopRenderer still compiles as a fallback renderer.</label></li>
+      </ul>
+    </div>
+    <div>
+      <h2>Verification</h2>
+      <ul>
+        <li><label><input type="checkbox">Run gofmt on edited Go files.</label></li>
+        <li><label><input type="checkbox">Run go test ./...</label></li>
+        <li><label><input type="checkbox">Run go vet ./...</label></li>
+        <li><label><input type="checkbox">Run the sandbox with the Vulkan renderer enabled.</label></li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>Handoff Notes</h2>
+    <p class="note">This plan completes the roadmap bootstrap. Do not start sprite batching until windowing, swapchain presentation, and one textured quad are stable.</p>
+  </section>
+</main>
+</body>
+</html>

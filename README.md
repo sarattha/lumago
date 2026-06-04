@@ -113,7 +113,7 @@ Frame
 
 ## Requirements
 
-- Go 1.23+
+- Go 1.26.4+
 - GitHub CLI, optional
 - Vulkan SDK, later, when the real Vulkan backend is implemented
 

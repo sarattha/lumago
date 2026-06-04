@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ExecPlan 03 - Per-Light 2D Shadow Maps</title>
+  <style>
+    :root { color-scheme: light dark; --bg: #f7f7f4; --ink: #1f2933; --muted: #5f6b76; --card: #ffffff; --line: #d9ddd6; --accent: #176b87; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #111418; --ink: #eef2f3; --muted: #a9b2b8; --card: #1a2026; --line: #313942; --accent: #68b8d6; } }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); line-height: 1.55; }
+    main { max-width: 980px; margin: 0 auto; padding: 40px 20px 64px; }
+    header, section { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 24px; margin-bottom: 18px; }
+    h1, h2 { margin: 0 0 12px; line-height: 1.15; }
+    h1 { font-size: 2rem; }
+    h2 { font-size: 1.2rem; color: var(--accent); }
+    p { margin: 0 0 12px; }
+    ul { margin: 0; padding-left: 1.4rem; }
+    li { margin: 8px 0; }
+    label { cursor: pointer; }
+    input[type="checkbox"] { margin-right: 10px; transform: translateY(1px); }
+    .meta { color: var(--muted); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
+    .note { border-left: 4px solid var(--accent); padding-left: 14px; color: var(--muted); }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="meta">LumaGo ExecPlan 03</p>
+    <h1>Per-Light 2D Shadow Maps</h1>
+    <p>Make shadow-casting lights respect rectangle and segment occluders using a per-light hard-shadow path that feeds the light accumulation pass.</p>
+  </header>
+
+  <section>
+    <h2>Execution Checklist</h2>
+    <ul>
+      <li><label><input type="checkbox">Finalize the occluder data model for polygon points, line segments, layer, and optional caster metadata.</label></li>
+      <li><label><input type="checkbox">Add segment extraction from rectangle and polygon occluders.</label></li>
+      <li><label><input type="checkbox">Cull occluder segments by light radius before shadow generation.</label></li>
+      <li><label><input type="checkbox">Create per-light shadow texture resources for shadow-casting lights.</label></li>
+      <li><label><input type="checkbox">Implement shadow map generation from light-relative occluder segments.</label></li>
+      <li><label><input type="checkbox">Add shadow lookup to the light accumulation shader.</label></li>
+      <li><label><input type="checkbox">Support hard shadows first, with no blur required for acceptance.</label></li>
+      <li><label><input type="checkbox">Add a debug view for per-light shadow textures or shadow factor.</label></li>
+      <li><label><input type="checkbox">Update the lighting_room example with 20 rectangle or segment occluders.</label></li>
+      <li><label><input type="checkbox">Verify two shadow-casting lights and additional non-shadowing lights in the same scene.</label></li>
+    </ul>
+  </section>
+
+  <section class="grid">
+    <div>
+      <h2>Acceptance Checklist</h2>
+      <ul>
+        <li><label><input type="checkbox">Point lights cast visible shadows.</label></li>
+        <li><label><input type="checkbox">Rectangular wall occluders block light.</label></li>
+        <li><label><input type="checkbox">Characters or props can optionally cast shadows.</label></li>
+        <li><label><input type="checkbox">3-8 dynamic shadow-casting lights are possible in a simple scene.</label></li>
+        <li><label><input type="checkbox">Debug shadow visualization is available.</label></li>
+      </ul>
+    </div>
+    <div>
+      <h2>Verification</h2>
+      <ul>
+        <li><label><input type="checkbox">Run gofmt on edited Go files.</label></li>
+        <li><label><input type="checkbox">Run go test ./...</label></li>
+        <li><label><input type="checkbox">Run go vet ./...</label></li>
+        <li><label><input type="checkbox">Move shadow-casting lights and verify occluder shadows update.</label></li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>Handoff Notes</h2>
+    <p class="note">This is the practical production shadow path. Keep SDF shadows separate and experimental until this hard-shadow path is reliable.</p>
+  </section>
+</main>
+</body>
+</html>

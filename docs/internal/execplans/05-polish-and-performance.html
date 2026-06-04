@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ExecPlan 05 - Polish and Performance</title>
+  <style>
+    :root { color-scheme: light dark; --bg: #f7f7f4; --ink: #1f2933; --muted: #5f6b76; --card: #ffffff; --line: #d9ddd6; --accent: #176b87; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #111418; --ink: #eef2f3; --muted: #a9b2b8; --card: #1a2026; --line: #313942; --accent: #68b8d6; } }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); line-height: 1.55; }
+    main { max-width: 980px; margin: 0 auto; padding: 40px 20px 64px; }
+    header, section { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 24px; margin-bottom: 18px; }
+    h1, h2 { margin: 0 0 12px; line-height: 1.15; }
+    h1 { font-size: 2rem; }
+    h2 { font-size: 1.2rem; color: var(--accent); }
+    p { margin: 0 0 12px; }
+    ul { margin: 0; padding-left: 1.4rem; }
+    li { margin: 8px 0; }
+    label { cursor: pointer; }
+    input[type="checkbox"] { margin-right: 10px; transform: translateY(1px); }
+    .meta { color: var(--muted); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
+    .note { border-left: 4px solid var(--accent); padding-left: 14px; color: var(--muted); }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="meta">LumaGo ExecPlan 05</p>
+    <h1>Polish and Performance</h1>
+    <p>Make the MVP stable, measurable, and ready for evaluation against the 1080p, 60 FPS, mid-range desktop GPU target.</p>
+  </header>
+
+  <section>
+    <h2>Execution Checklist</h2>
+    <ul>
+      <li><label><input type="checkbox">Add a frame timing overlay with CPU frame time and GPU timing when available.</label></li>
+      <li><label><input type="checkbox">Add draw call, sprite, light, and occluder counters.</label></li>
+      <li><label><input type="checkbox">Add GPU timing markers around color, normal, shadow, light, SDF, and composite passes.</label></li>
+      <li><label><input type="checkbox">Add memory allocation checks for the render hot path.</label></li>
+      <li><label><input type="checkbox">Add development shader reload support for edited shader files.</label></li>
+      <li><label><input type="checkbox">Add a basic config file for window size, renderer mode, debug view, and development toggles.</label></li>
+      <li><label><input type="checkbox">Finalize the lighting_room demo with 1,000 sprites, 4 materials, 4 lights, 2 shadow-casting lights, and 20 occluders.</label></li>
+      <li><label><input type="checkbox">Validate debug views for color, normal, light, shadow, and SDF.</label></li>
+      <li><label><input type="checkbox">Document MVP runtime requirements and demo launch instructions.</label></li>
+      <li><label><input type="checkbox">Update the roadmap checklist to reflect completed MVP work.</label></li>
+    </ul>
+  </section>
+
+  <section class="grid">
+    <div>
+      <h2>Acceptance Checklist</h2>
+      <ul>
+        <li><label><input type="checkbox">The demo targets 1080p at 60 FPS on a mid-range desktop GPU.</label></li>
+        <li><label><input type="checkbox">Frame timing and draw counts are visible in debug overlay.</label></li>
+        <li><label><input type="checkbox">Per-frame allocation in the render hot path is minimal and measured.</label></li>
+        <li><label><input type="checkbox">Debug views cover color, normal, light, shadow, and SDF outputs.</label></li>
+        <li><label><input type="checkbox">The demo scene matches the documented MVP acceptance target.</label></li>
+      </ul>
+    </div>
+    <div>
+      <h2>Verification</h2>
+      <ul>
+        <li><label><input type="checkbox">Run gofmt on edited Go files.</label></li>
+        <li><label><input type="checkbox">Run go test ./...</label></li>
+        <li><label><input type="checkbox">Run go vet ./...</label></li>
+        <li><label><input type="checkbox">Run the final lighting_room demo and record observed FPS and allocation metrics.</label></li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>Handoff Notes</h2>
+    <p class="note">This plan closes the MVP loop. It should focus on measurement, stability, documentation, and acceptance evidence rather than adding new rendering features.</p>
+  </section>
+</main>
+</body>
+</html>
