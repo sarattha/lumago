@@ -1,0 +1,30 @@
+# Go
+/bin/
+/dist/
+*.test
+*.out
+coverage.out
+
+# Build artifacts
+/build/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Shader outputs
+/shaders/bin/
+*.spv
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
