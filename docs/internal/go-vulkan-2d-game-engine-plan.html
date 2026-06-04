@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Go + Vulkan 2D Game Engine Plan</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-2: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #38bdf8;
+      --accent-2: #a78bfa;
+      --green: #34d399;
+      --yellow: #fbbf24;
+      --red: #fb7185;
+      --border: #374151;
+      --code-bg: #020617;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Arial, sans-serif;
+      background: linear-gradient(180deg, #020617 0%, #0f172a 50%, #111827 100%);
+      color: var(--text);
+      line-height: 1.65;
+    }
+
+    .container {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 40px 20px 80px;
+    }
+
+    header {
+      padding: 48px 32px;
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      background:
+        radial-gradient(circle at top right, rgba(56, 189, 248, 0.18), transparent 36%),
+        radial-gradient(circle at bottom left, rgba(167, 139, 250, 0.18), transparent 36%),
+        rgba(17, 24, 39, 0.88);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(2rem, 4vw, 3.6rem);
+      line-height: 1.1;
+      letter-spacing: -0.04em;
+    }
+
+    h2 {
+      margin-top: 52px;
+      margin-bottom: 16px;
+      font-size: 2rem;
+      border-left: 5px solid var(--accent);
+      padding-left: 14px;
+    }
+
+    h3 {
+      margin-top: 34px;
+      margin-bottom: 10px;
+      font-size: 1.35rem;
+      color: #f8fafc;
+    }
+
+    h4 {
+      margin-top: 24px;
+      margin-bottom: 8px;
+      color: #dbeafe;
+    }
+
+    p {
+      margin: 12px 0;
+    }
+
+    .subtitle {
+      max-width: 780px;
+      color: var(--muted);
+      font-size: 1.1rem;
+    }
+
+    .badge-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 24px;
+    }
+
+    .badge {
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      background: rgba(56, 189, 248, 0.1);
+      color: #bae6fd;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.9rem;
+    }
+
+    .section {
+      background: rgba(17, 24, 39, 0.72);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 24px;
+      margin-top: 22px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin: 18px 0;
+    }
+
+    .card {
+      background: rgba(31, 41, 55, 0.72);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+    }
+
+    .card h3, .card h4 {
+      margin-top: 0;
+    }
+
+    .callout {
+      border-left: 5px solid var(--green);
+      background: rgba(52, 211, 153, 0.08);
+      padding: 16px 18px;
+      border-radius: 14px;
+      margin: 18px 0;
+    }
+
+    .warning {
+      border-left-color: var(--yellow);
+      background: rgba(251, 191, 36, 0.08);
+    }
+
+    .danger {
+      border-left-color: var(--red);
+      background: rgba(251, 113, 133, 0.08);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 14px;
+      margin: 18px 0;
+      border: 1px solid var(--border);
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--border);
+      padding: 12px 14px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: rgba(56, 189, 248, 0.12);
+      color: #e0f2fe;
+      font-weight: 700;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    code {
+      background: rgba(2, 6, 23, 0.9);
+      color: #bfdbfe;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid #1e293b;
+      color: #e5e7eb;
+      padding: 18px;
+      border-radius: 16px;
+      overflow-x: auto;
+      margin: 16px 0;
+      font-size: 0.92rem;
+      line-height: 1.55;
+    }
+
+    pre code {
+      background: transparent;
+      padding: 0;
+      color: inherit;
+    }
+
+    ul, ol {
+      padding-left: 24px;
+    }
+
+    li {
+      margin: 6px 0;
+    }
+
+    .phase {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      overflow: hidden;
+      margin: 18px 0;
+      background: rgba(15, 23, 42, 0.72);
+    }
+
+    .phase-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      padding: 16px 18px;
+      background: rgba(56, 189, 248, 0.12);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .phase-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #f8fafc;
+    }
+
+    .phase-tag {
+      color: #dbeafe;
+      border: 1px solid rgba(219, 234, 254, 0.25);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+    }
+
+    .phase-body {
+      padding: 18px;
+    }
+
+    .toc {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .toc a {
+      display: block;
+      color: #bae6fd;
+      text-decoration: none;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 12px;
+      background: rgba(15, 23, 42, 0.7);
+    }
+
+    .toc a:hover {
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.08);
+    }
+
+    .footer {
+      color: var(--muted);
+      text-align: center;
+      margin-top: 64px;
+      font-size: 0.92rem;
+    }
+
+    .kbd {
+      display: inline-block;
+      border: 1px solid var(--border);
+      background: rgba(31, 41, 55, 0.8);
+      border-radius: 6px;
+      padding: 0 6px;
+      color: #f8fafc;
+      font-size: 0.85em;
+    }
+
+    @media print {
+      body {
+        background: #fff;
+        color: #111827;
+      }
+
+      header, .section, .card, .phase {
+        background: #fff;
+        border-color: #d1d5db;
+        box-shadow: none;
+      }
+
+      pre, code {
+        background: #f3f4f6;
+        color: #111827;
+      }
+
+      th {
+        background: #e5e7eb;
+        color: #111827;
+      }
+
+      .badge, .phase-tag {
+        color: #111827;
+        border-color: #9ca3af;
+        background: #f3f4f6;
+      }
+
+      a {
+        color: #1d4ed8;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Go + Vulkan 2D Game Engine Plan</h1>
+      <p class="subtitle">
+        A PC-first roadmap for building a custom 2D game engine in Go, with Vulkan used for
+        normal-mapped lighting, per-light shadow maps, and experimental SDF-based soft shadows.
+      </p>
+      <div class="badge-row">
+        <span class="badge">Go Engine Core</span>
+        <span class="badge">Vulkan Renderer</span>
+        <span class="badge">PC First</span>
+        <span class="badge">2D Only</span>
+        <span class="badge">Normal Maps</span>
+        <span class="badge">Shadow Maps</span>
+        <span class="badge">SDF Shadows</span>
+      </div>
+
+      <nav class="toc">
+        <a href="#summary">Summary</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#options">Lighting and Shadow Options</a>
+        <a href="#roadmap">Phase Roadmap</a>
+        <a href="#mvp">MVP Definition</a>
+        <a href="#pipeline">Rendering Pipeline</a>
+        <a href="#repo">Repository Structure</a>
+        <a href="#api">Example API</a>
+        <a href="#acceptance">Acceptance Targets</a>
+      </nav>
+    </header>
+
+    <section id="summary" class="section">
+      <h2>1. Summary</h2>
+      <p>
+        The engine should be designed as a <strong>Go-first 2D engine</strong> with a
+        <strong>Vulkan renderer backend</strong>. Go should own game-facing concepts such as
+        sprites, tilemaps, animation, scene data, transforms, lights, and occluders. Vulkan should
+        own GPU resources, render targets, shader pipelines, command buffers, and compositing.
+      </p>
+
+      <div class="callout">
+        <strong>Core design rule:</strong>
+        Go decides <em>what</em> should be rendered. Vulkan decides <em>how</em> it is rendered.
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Area</th>
+            <th>Recommended owner</th>
+            <th>Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Sprites, animation, transforms</td>
+            <td>Go engine</td>
+            <td>These are gameplay and scene-level concepts.</td>
+          </tr>
+          <tr>
+            <td>Light objects and occluders</td>
+            <td>Go engine</td>
+            <td>The game world should define where lights and blockers exist.</td>
+          </tr>
+          <tr>
+            <td>Texture upload, GPU buffers, render passes</td>
+            <td>Vulkan backend</td>
+            <td>These are low-level rendering concerns.</td>
+          </tr>
+          <tr>
+            <td>Normal-map lighting, shadow maps, SDF raymarching</td>
+            <td>Vulkan backend</td>
+            <td>These are shader/GPU-heavy operations.</td>
+          </tr>
+          <tr>
+            <td>Render command generation</td>
+            <td>Go engine</td>
+            <td>The engine should batch high-level data before sending it to Vulkan.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="architecture" class="section">
+      <h2>2. High-Level Architecture</h2>
+
+      <pre><code>Go 2D Game Engine
+  |
+  |-- Scene / ECS
+  |-- Sprite system
+  |-- Animation system
+  |-- Tilemap system
+  |-- Camera
+  |-- Light components
+  |-- Occluder components
+  |-- Render command generation
+  |
+  v
+Vulkan Renderer Backend
+  |
+  |-- Swapchain
+  |-- Command buffers
+  |-- GPU buffers
+  |-- Texture upload
+  |-- Sprite batch pipelines
+  |-- Normal-map lighting pipeline
+  |-- Shadow-map pipeline
+  |-- SDF shadow pipeline
+  |-- Final composite pass</code></pre>
+
+      <h3>Division of Responsibility</h3>
+      <div class="grid">
+        <div class="card">
+          <h3>Go Engine Owns</h3>
+          <ul>
+            <li>Game loop</li>
+            <li>Scene graph or ECS</li>
+            <li>Sprite components</li>
+            <li>Animation state</li>
+            <li>Tilemap data</li>
+            <li>Camera</li>
+            <li>Input</li>
+            <li>Asset registry</li>
+            <li>Light objects</li>
+            <li>Occluder shapes</li>
+            <li>Sorting by layer and Z</li>
+            <li>Batch command generation</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>Vulkan Backend Owns</h3>
+          <ul>
+            <li>Swapchain</li>
+            <li>Command buffers</li>
+            <li>Pipelines</li>
+            <li>Descriptor sets</li>
+            <li>Texture upload</li>
+            <li>GPU buffers</li>
+            <li>Render targets</li>
+            <li>Light map rendering</li>
+            <li>Shadow rendering</li>
+            <li>Shader execution</li>
+            <li>Final composition</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="warning callout">
+        <strong>Important performance rule:</strong>
+        Do not call Vulkan once per sprite from Go. Generate arrays of render commands and submit
+        them in batches.
+      </div>
+
+      <pre><code>// Bad pattern:
+for _, sprite := range sprites {
+    vulkanDrawSprite(sprite) // too much per-sprite boundary overhead
+}
+
+// Better pattern:
+commands := make([]SpriteDrawCommand, 0, len(sprites))
+
+for _, sprite := range sprites {
+    commands = append(commands, sprite.ToDrawCommand())
+}
+
+renderer.SubmitSprites(commands)</code></pre>
+    </section>
+
+    <section id="options" class="section">
+      <h2>3. Lighting and Shadow Options</h2>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Option</th>
+            <th>Feature</th>
+            <th>MVP Priority</th>
+            <th>Purpose</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>B</td>
+            <td>Normal-mapped 2D lighting</td>
+            <td>Core MVP</td>
+            <td>Make sprites visually react to dynamic lights.</td>
+          </tr>
+          <tr>
+            <td>C</td>
+            <td>Per-light 2D shadow maps</td>
+            <td>Core MVP, simplified</td>
+            <td>Allow lights to be blocked by walls, objects, and occluders.</td>
+          </tr>
+          <tr>
+            <td>D</td>
+            <td>SDF-based soft shadows</td>
+            <td>Experimental MVP / Phase 2</td>
+            <td>Support stylized soft shadows and raymarched light visibility.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Option B: Normal-Mapped 2D Lighting</h3>
+      <p>
+        This should be the first advanced visual feature. Each sprite may have an albedo texture and
+        a normal map texture. The renderer writes albedo and normal data to separate render targets,
+        then uses a light accumulation pass to calculate per-pixel lighting.
+      </p>
+
+      <pre><code>Pass 1: Albedo pass
+  Render sprite color into sceneColor.
+
+Pass 2: Normal pass
+  Render sprite normals into sceneNormal.
+
+Pass 3: Light accumulation pass
+  For each visible light, calculate lighting using sceneNormal.
+
+Pass 4: Composite pass
+  final = sceneColor * lighting</code></pre>
+
+      <h4>Light model</h4>
+      <pre><code>type Light2D struct {
+    Position  Vec2
+    Radius    float32
+    Color     Color
+    Intensity float32
+    Falloff   float32
+}</code></pre>
+
+      <h4>Material model</h4>
+      <pre><code>type Material2D struct {
+    Albedo    TextureID
+    Normal    TextureID
+    Roughness float32
+    Emissive  float32
+}</code></pre>
+
+      <h3>Option C: Per-Light 2D Shadow Maps</h3>
+      <p>
+        This is the second core feature. The Go engine owns occluder data, while Vulkan generates
+        the shadow result per light.
+      </p>
+
+      <pre><code>For each light:
+  1. Gather nearby occluder segments.
+  2. Convert occluder edges into light-relative space.
+  3. Render or compute nearest blocking distance per angle.
+  4. Store result in a 1D shadow texture or small 2D polar texture.
+  5. During light rendering, compare pixel distance against blocker distance.</code></pre>
+
+      <h4>Occluder model</h4>
+      <pre><code>type Occluder2D struct {
+    Points []Vec2
+    Layer  int
+}</code></pre>
+
+      <h4>Recommended MVP scope</h4>
+      <ul>
+        <li>Line segment occluders</li>
+        <li>Rectangle occluders</li>
+        <li>Tilemap wall occluders</li>
+        <li>Hard shadows first</li>
+        <li>Optional blur later</li>
+      </ul>
+
+      <h3>Option D: SDF-Based Shadows</h3>
+      <p>
+        SDF shadows should be treated as an experimental rendering path. They are powerful, but they
+        are more complex than normal maps and standard shadow maps.
+      </p>
+
+      <pre><code>For each pixel affected by light:
+  ray = pixelPosition - lightPosition
+  march along ray
+  sample SDF
+  if distance <= threshold:
+      shadowed
+  else:
+      lit</code></pre>
+
+      <h4>Recommended MVP approach</h4>
+      <p>
+        Start with a <strong>static SDF texture</strong> generated from tilemap or level geometry.
+        Upload it to the GPU, then raymarch in the fragment shader.
+      </p>
+
+      <div class="callout warning">
+        <strong>Recommendation:</strong>
+        Keep Option C as the practical production shadow path and Option D as the advanced
+        experimental soft-shadow path.
+      </div>
+    </section>
+
+    <section id="roadmap" class="section">
+      <h2>4. Phase Roadmap</h2>
+
+      <div class="phase">
+        <div class="phase-header">
+          <span class="phase-title">Phase 0 — PC Vulkan Foundation</span>
+          <span class="phase-tag">Bootstrap</span>
+        </div>
+        <div class="phase-body">
+          <p><strong>Goal:</strong> Create the minimum desktop runtime that opens a window and renders one textured quad through Vulkan.</p>
+          <h4>Checklist</h4>
+          <ul>
+            <li>Create window</li>
+            <li>Create Vulkan instance</li>
+            <li>Create physical and logical device</li>
+            <li>Create swapchain</li>
+            <li>Create command buffers</li>
+            <li>Create synchronization objects</li>
+            <li>Render one textured quad</li>
+            <li>Capture frame in RenderDoc</li>
+          </ul>
+          <h4>Acceptance Criteria</h4>
+          <ul>
+            <li>A desktop window opens.</li>
+            <li>A textured quad is rendered.</li>
+            <li>The frame can be captured in RenderDoc.</li>
+            <li>The engine runs a fixed <code>Update</code> + <code>Draw</code> loop.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-header">
+          <span class="phase-title">Phase 1 — Sprite Engine and Batching</span>
+          <span class="phase-tag">2D Core</span>
+        </div>
+        <div class="phase-body">
+          <p><strong>Goal:</strong> Let Go handle sprites, animation, transforms, camera, layer sorting, and batch command generation.</p>
+          <h4>Checklist</h4>
+          <ul>
+            <li>Texture loader</li>
+            <li>Texture atlas</li>
+            <li>Sprite command buffer</li>
+            <li>Instance buffer</li>
+            <li>Layer sorting</li>
+            <li>Camera transform</li>
+            <li>Batch rendering</li>
+          </ul>
+          <h4>Acceptance Criteria</h4>
+          <ul>
+            <li>Render 1,000+ sprites.</li>
+            <li>Sort by layer and Z.</li>
+            <li>Use texture atlas.</li>
+            <li>Avoid per-frame heap allocation in the hot path.</li>
+            <li>Avoid per-sprite Vulkan calls.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-header">
+          <span class="phase-title">Phase 2 — Normal-Mapped 2D Lighting</span>
+          <span class="phase-tag">Option B</span>
+        </div>
+        <div class="phase-body">
+          <p><strong>Goal:</strong> Sprites react to dynamic lights using normal maps.</p>
+          <h4>Checklist</h4>
+          <ul>
+            <li>Material supports albedo + normal textures</li>
+            <li>Scene color render target</li>
+            <li>Scene normal render target</li>
+            <li>Light buffer render target</li>
+            <li>Point light shader</li>
+            <li>Ambient light</li>
+            <li>Final composite pass</li>
+          </ul>
+          <h4>Acceptance Criteria</h4>
+          <ul>
+            <li>Sprites visually react to moving lights.</li>
+            <li>Normal maps work on characters, walls, floor, and props.</li>
+            <li>Multiple lights are supported.</li>
+            <li>Ambient light is configurable.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-header">
+          <span class="phase-title">Phase 3 — Per-Light 2D Shadow Maps</span>
+          <span class="phase-tag">Option C</span>
+        </div>
+        <div class="phase-body">
+          <p><strong>Goal:</strong> Lights are blocked by 2D occluders.</p>
+          <h4>Checklist</h4>
+          <ul>
+            <li>Occluder component</li>
+            <li>Segment extraction</li>
+            <li>Nearby occluder culling</li>
+            <li>Per-light shadow texture</li>
+            <li>Shadow lookup in light shader</li>
+            <li>Hard shadows</li>
+            <li>Debug shadow visualization</li>
+          </ul>
+          <h4>Acceptance Criteria</h4>
+          <ul>
+            <li>Point lights cast visible shadows.</li>
+            <li>Rectangular wall occluders block light.</li>
+            <li>Characters or props can optionally cast shadows.</li>
+            <li>3–8 dynamic shadow-casting lights are possible in a simple scene.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-header">
+          <span class="phase-title">Phase 4 — SDF-Based Experimental Shadows</span>
+          <span class="phase-tag">Option D</span>
+        </div>
+        <div class="phase-body">
+          <p><strong>Goal:</strong> Use signed distance fields to create soft, stylized 2D shadows.</p>
+          <h4>Checklist</h4>
+          <ul>
+            <li>Generate static SDF from level geometry</li>
+            <li>Upload SDF texture</li>
+            <li>Raymarch from light to pixel</li>
+            <li>Render soft shadow factor</li>
+            <li>Compare with shadow-map mode</li>
+            <li>Debug SDF view</li>
+          </ul>
+          <h4>Acceptance Criteria</h4>
+          <ul>
+            <li>A static tilemap level can generate an SDF.</li>
+            <li>One light can use SDF raymarching.</li>
+            <li>Soft shadows are visible.</li>
+            <li>SDF renderer can be toggled on/off for comparison with shadow maps.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-header">
+          <span class="phase-title">Phase 5 — Polish and Performance</span>
+          <span class="phase-tag">Stability</span>
+        </div>
+        <div class="phase-body">
+          <p><strong>Goal:</strong> Make the MVP stable, measurable, and testable.</p>
+          <h4>Checklist</h4>
+          <ul>
+            <li>Frame timing overlay</li>
+            <li>Draw call counter</li>
+            <li>Sprite counter</li>
+            <li>Light counter</li>
+            <li>GPU timing markers</li>
+            <li>Memory allocation checks</li>
+            <li>Shader reload in development mode</li>
+            <li>Basic config file</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="mvp" class="section">
+      <h2>5. MVP Definition</h2>
+
+      <h3>MVP Name</h3>
+      <pre><code>Go2D Vulkan Lighting MVP</code></pre>
+
+      <h3>MVP Goal</h3>
+      <p>
+        Create a PC-only 2D engine prototype in Go with Vulkan rendering, sprite batching,
+        normal-mapped lighting, simple shadow-casting lights, and an experimental SDF shadow mode.
+      </p>
+
+      <div class="grid">
+        <div class="card">
+          <h3>Must-Have</h3>
+          <ul>
+            <li>Desktop window</li>
+            <li>Vulkan renderer</li>
+            <li>Sprite batching</li>
+            <li>Texture atlas</li>
+            <li>Albedo + normal map sprites</li>
+            <li>Point lights</li>
+            <li>Ambient light</li>
+            <li>Light accumulation pass</li>
+            <li>Rectangle/segment occluders</li>
+            <li>Hard shadows using per-light shadow maps</li>
+            <li>Final composite pass</li>
+            <li>Debug overlays</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>Should-Have</h3>
+          <ul>
+            <li>Soft shadow blur</li>
+            <li>Light radius visualization</li>
+            <li>Normal map debug view</li>
+            <li>Shadow map debug view</li>
+            <li>Sprite layer sorting</li>
+            <li>Camera movement</li>
+            <li>Basic asset loader</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>Experimental</h3>
+          <ul>
+            <li>Static SDF texture generation</li>
+            <li>One SDF-raymarched light</li>
+            <li>SDF debug visualization</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>Not in MVP</h3>
+          <ul>
+            <li>Editor</li>
+            <li>Mobile</li>
+            <li>Physics engine</li>
+            <li>Networking</li>
+            <li>Particle system</li>
+            <li>Scripting</li>
+            <li>Audio</li>
+            <li>Complex ECS</li>
+            <li>Hot reload</li>
+            <li>Advanced materials</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="pipeline" class="section">
+      <h2>6. MVP Rendering Pipeline</h2>
+
+      <pre><code>Frame
+  |
+  |-- Go Update()
+  |     |-- update sprites
+  |     |-- update animations
+  |     |-- update lights
+  |     |-- update occluders
+  |
+  |-- Go BuildRenderCommands()
+  |     |-- SpriteDrawCommand[]
+  |     |-- Light2D[]
+  |     |-- Occluder2D[]
+  |
+  |-- Vulkan Pass 1: Scene color
+  |     |-- render albedo sprites
+  |
+  |-- Vulkan Pass 2: Scene normal
+  |     |-- render normal-map sprites
+  |
+  |-- Vulkan Pass 3: Shadow maps
+  |     |-- build per-light shadow maps from occluders
+  |
+  |-- Vulkan Pass 4: Light accumulation
+  |     |-- render lights
+  |     |-- sample normal texture
+  |     |-- sample shadow map
+  |
+  |-- Vulkan Pass 5: SDF shadow mode, optional
+  |     |-- sample SDF texture
+  |     |-- raymarch light visibility
+  |
+  |-- Vulkan Pass 6: Composite
+  |     |-- sceneColor * lightBuffer + emissive
+  |
+  |-- Present</code></pre>
+
+      <h3>Simple First Renderer Design</h3>
+      <pre><code>Pass 1: Sprite Color Pass
+  Draw all visible sprites into sceneColor texture.
+
+Pass 2: Sprite Normal Pass
+  Draw all normal maps into sceneNormal texture.
+
+Pass 3: Shadow Map Pass
+  For shadow-casting lights, generate shadow data from occluders.
+
+Pass 4: Light Accumulation Pass
+  Calculate lighting using light data, normals, and shadow data.
+
+Pass 5: Composite Pass
+  final = sceneColor * lightBuffer + emissive
+  render to swapchain image.</code></pre>
+    </section>
+
+    <section id="repo" class="section">
+      <h2>7. Suggested Repository Structure</h2>
+
+      <pre><code>go2d/
+  cmd/
+    sandbox/
+      main.go
+
+  engine/
+    app/
+      app.go
+      loop.go
+
+    math/
+      vec2.go
+      mat3.go
+      rect.go
+      color.go
+
+    scene/
+      scene.go
+      entity.go
+      components.go
+
+    graphics/
+      sprite.go
+      material.go
+      texture.go
+      atlas.go
+      camera.go
+      light.go
+      occluder.go
+      draw_command.go
+
+    renderer/
+      renderer.go
+
+      vulkan/
+        instance.go
+        device.go
+        swapchain.go
+        command.go
+        sync.go
+        buffer.go
+        image.go
+        descriptor.go
+        pipeline.go
+
+        passes/
+          sprite_color.go
+          sprite_normal.go
+          shadow_map.go
+          light_accum.go
+          sdf_shadow.go
+          composite.go
+
+    assets/
+      loader.go
+      image.go
+      shader.go
+
+    platform/
+      desktop/
+        window.go
+        input.go
+
+  shaders/
+    sprite_color.vert
+    sprite_color.frag
+    sprite_normal.frag
+    light_accum.frag
+    shadow_map.frag
+    sdf_shadow.frag
+    composite.frag
+
+  examples/
+    lighting_room/
+      main.go
+      assets/
+        wall.png
+        wall_n.png
+        floor.png
+        floor_n.png
+        character.png
+        character_n.png</code></pre>
+    </section>
+
+    <section id="api" class="section">
+      <h2>8. Example Engine API</h2>
+
+      <p>
+        Game code should stay simple. A developer should not need to call Vulkan directly.
+      </p>
+
+      <pre><code>func main() {
+    game := engine.NewGame(engine.Config{
+        Width:  1280,
+        Height: 720,
+        Title:  "Go2D Lighting MVP",
+    })
+
+    scene := scene.New()
+
+    floorMat := graphics.Material2D{
+        Albedo: game.Assets.LoadTexture("floor.png"),
+        Normal: game.Assets.LoadTexture("floor_n.png"),
+    }
+
+    scene.AddSprite(graphics.Sprite{
+        Material: floorMat,
+        Transform: graphics.Transform2D{
+            Position: graphics.Vec2{X: 0, Y: 0},
+            Scale:    graphics.Vec2{X: 1, Y: 1},
+        },
+    })
+
+    scene.AddLight(graphics.Light2D{
+        Position:    graphics.Vec2{X: 300, Y: 220},
+        Radius:      400,
+        Color:       graphics.Color{R: 1.0, G: 0.85, B: 0.55, A: 1.0},
+        Intensity:   2.0,
+        CastShadows: true,
+    })
+
+    scene.AddOccluder(graphics.Occluder2D{
+        Points: []graphics.Vec2{
+            {X: 200, Y: 200},
+            {X: 400, Y: 200},
+            {X: 400, Y: 260},
+            {X: 200, Y: 260},
+        },
+    })
+
+    game.SetScene(scene)
+    game.Run()
+}</code></pre>
+
+      <h3>Core Renderer Interface</h3>
+      <pre><code>type Renderer interface {
+    BeginFrame(camera Camera2D)
+    SubmitSprites(commands []SpriteDrawCommand)
+    EndFrame()
+}</code></pre>
+
+      <h3>Core Data Types</h3>
+      <pre><code>type TextureID uint32
+
+type Vec2 struct {
+    X, Y float32
+}
+
+type Rect struct {
+    X, Y, W, H float32
+}
+
+type Color struct {
+    R, G, B, A float32
+}
+
+type Transform2D struct {
+    Position Vec2
+    Scale    Vec2
+    Rotation float32
+    Z        float32
+}
+
+type Sprite struct {
+    Texture TextureID
+    Src     Rect
+    Color   Color
+}
+
+type SpriteDrawCommand struct {
+    Sprite    Sprite
+    Transform Transform2D
+    Layer     int
+}</code></pre>
+    </section>
+
+    <section id="acceptance" class="section">
+      <h2>9. MVP Acceptance Targets</h2>
+
+      <h3>Demo Scene Target</h3>
+      <pre><code>A PC demo room with:
+  - 1,000 sprites
+  - 4 normal-mapped materials
+  - 4 dynamic point lights
+  - 2 shadow-casting lights
+  - 20 rectangle/segment occluders
+  - camera movement
+  - debug views for color, normal, light, shadow, and SDF</code></pre>
+
+      <h3>Performance Target</h3>
+      <pre><code>Resolution:
+  1080p
+
+Frame rate:
+  60 FPS
+
+Hardware:
+  Mid-range desktop GPU
+
+Runtime:
+  Minimal per-frame allocation
+  Few sprite draw calls due to batching
+  Debug overlay for frame timing and draw counts</code></pre>
+
+      <h3>Implementation Priority</h3>
+      <ol>
+        <li>Window + Vulkan triangle</li>
+        <li>Textured quad</li>
+        <li>Sprite batch</li>
+        <li>Texture atlas</li>
+        <li>Scene color pass</li>
+        <li>Scene normal pass</li>
+        <li>Light accumulation pass</li>
+        <li>Composite pass</li>
+        <li>Occluders</li>
+        <li>Per-light shadow maps</li>
+        <li>SDF prototype</li>
+        <li>Debug views</li>
+      </ol>
+
+      <div class="callout">
+        <strong>Final MVP rule:</strong>
+        Ship Option B and C first. Include Option D as an experimental renderer mode after the
+        normal-map and shadow-map path works reliably.
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>10. Final Recommendation</h2>
+      <p>
+        This engine direction is technically sound for a PC-first 2D game engine. The cleanest plan
+        is to build a Go-native engine API, keep game developers away from Vulkan details, and use
+        Vulkan internally for a multi-pass 2D renderer.
+      </p>
+
+      <pre><code>Best first target:
+  Go engine core
+  Vulkan desktop renderer
+  Sprite batching
+  Normal-mapped lighting
+  Per-light hard shadows
+  Optional SDF soft-shadow prototype</code></pre>
+
+      <p>
+        The most important engineering principle is to keep the renderer abstraction stable. If the
+        engine API remains simple, you can later add alternative backends, improve shadow algorithms,
+        or add mobile support without rewriting the game-facing layer.
+      </p>
+    </section>
+
+    <div class="footer">
+      Generated as a standalone HTML planning document for a Go + Vulkan 2D game engine.
+    </div>
+  </div>
+</body>
+</html>
