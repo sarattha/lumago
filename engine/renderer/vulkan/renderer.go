@@ -77,7 +77,13 @@ type Renderer struct {
 	validation      bool
 	frameStarted    bool
 	imageIndex      uint32
+	frameCamera     graphics.Camera2D
 	pendingBatch    graphics.SpriteBatch
+	pendingLights   []graphics.Light2D
+	lightUpload     []byte
+	lightingConfig  graphics.LightingConfig2D
+	lightingTargets lightingRenderTargets
+	lightingPasses  []lightingPass
 	stats           erenderer.FrameStats
 }
 
@@ -134,7 +140,12 @@ func (r *Renderer) BeginFrame(camera graphics.Camera2D) error {
 		return err
 	}
 	r.frameStarted = true
+	r.frameCamera = camera
 	r.pendingBatch = graphics.SpriteBatch{}
+	r.pendingLights = r.pendingLights[:0]
+	r.lightUpload = r.lightUpload[:0]
+	r.lightingConfig = graphics.DefaultLightingConfig2D()
+	r.lightingPasses = defaultLightingPasses(r.lightingConfig.DebugView)
 	r.stats = erenderer.FrameStats{}
 	return nil
 }
@@ -150,7 +161,16 @@ func (r *Renderer) SubmitSpriteBatch(batch graphics.SpriteBatch) error {
 	return r.uploadSpriteBatch(batch)
 }
 
+func (r *Renderer) ConfigureLighting(config graphics.LightingConfig2D) error {
+	r.lightingConfig = config.WithDefaults()
+	r.lightingPasses = defaultLightingPasses(r.lightingConfig.DebugView)
+	return nil
+}
+
 func (r *Renderer) SubmitLights(lights []graphics.Light2D) error {
+	r.pendingLights = prepareLightsForFrame(r.pendingLights[:0], lights, r.frameCamera)
+	r.lightUpload = packLights(r.lightUpload, r.pendingLights)
+	r.stats.Lights = len(r.pendingLights)
 	return nil
 }
 
@@ -264,6 +284,9 @@ func (r *Renderer) init() error {
 	if err := r.createSwapchain(); err != nil {
 		return err
 	}
+	r.lightingTargets = defaultLightingRenderTargets(r.swapchainExtent, r.swapchainFormat)
+	r.lightingConfig = graphics.DefaultLightingConfig2D()
+	r.lightingPasses = defaultLightingPasses(r.lightingConfig.DebugView)
 	if err := r.createRenderPass(); err != nil {
 		return err
 	}
@@ -809,6 +832,7 @@ func (r *Renderer) recreateSwapchain() error {
 	if err := r.createSwapchain(); err != nil {
 		return err
 	}
+	r.lightingTargets = defaultLightingRenderTargets(r.swapchainExtent, r.swapchainFormat)
 	if err := r.createRenderPass(); err != nil {
 		return err
 	}
@@ -850,6 +874,7 @@ func (r *Renderer) cleanupSwapchain() {
 		vk.DestroySwapchain(r.device, r.swapchain, nil)
 		r.swapchain = vk.NullSwapchain
 	}
+	r.lightingTargets = lightingRenderTargets{}
 }
 
 func (r *Renderer) createShaderModule(path string) (vk.ShaderModule, error) {

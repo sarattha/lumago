@@ -129,6 +129,10 @@ func (g *Game) runFrame() error {
 		return err
 	}
 
+	if err := g.renderer.ConfigureLighting(g.scene.LightingConfig()); err != nil {
+		return err
+	}
+
 	if err := g.renderer.SubmitLights(g.scene.Lights()); err != nil {
 		return err
 	}

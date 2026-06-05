@@ -26,3 +26,19 @@ func TestBuildSpriteBatchReusesStorage(t *testing.T) {
 		t.Fatalf("batch storage was not reused")
 	}
 }
+
+func TestSceneLightingConfig(t *testing.T) {
+	s := New()
+	if s.LightingConfig() != graphics.DefaultLightingConfig2D() {
+		t.Fatalf("default lighting=%+v", s.LightingConfig())
+	}
+
+	s.SetLightingConfig(graphics.LightingConfig2D{
+		Ambient:   lmath.Color{R: 0.25, G: 0.2, B: 0.15, A: 1},
+		DebugView: graphics.DebugViewSceneNormal,
+	})
+	got := s.LightingConfig()
+	if got.DebugView != graphics.DebugViewSceneNormal || got.Ambient.R != 0.25 {
+		t.Fatalf("lighting config=%+v", got)
+	}
+}
