@@ -14,6 +14,9 @@ Planned shader groups:
 Compile GLSL to SPIR-V in the future with a script such as:
 
 ```bash
-glslc shaders/sprite_color.vert -o shaders/bin/sprite_color.vert.spv
-glslc shaders/sprite_color.frag -o shaders/bin/sprite_color.frag.spv
+make shaders
 ```
+
+Phase 00 uses `quad.vert` and `quad.frag` to render one visible checker-textured
+quad to the swapchain. Later phases will replace this with sprite batching and
+material texture descriptors.

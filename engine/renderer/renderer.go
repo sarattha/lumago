@@ -8,4 +8,6 @@ type Renderer interface {
 	SubmitLights(lights []graphics.Light2D) error
 	SubmitOccluders(occluders []graphics.Occluder2D) error
 	EndFrame() error
+	Resize(width, height int) error
+	Close() error
 }

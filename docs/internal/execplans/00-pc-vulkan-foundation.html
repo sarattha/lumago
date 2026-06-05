@@ -35,17 +35,17 @@
   <section>
     <h2>Execution Checklist</h2>
     <ul>
-      <li><label><input type="checkbox">Choose and document the desktop windowing dependency for PC builds.</label></li>
-      <li><label><input type="checkbox">Add a desktop platform package that creates, polls, and closes a window.</label></li>
-      <li><label><input type="checkbox">Add a fixed update/draw loop to the app lifecycle without exposing platform details to game code.</label></li>
-      <li><label><input type="checkbox">Create Vulkan instance setup with validation layers enabled in development builds.</label></li>
-      <li><label><input type="checkbox">Select a physical device and create a logical device with graphics and present queues.</label></li>
-      <li><label><input type="checkbox">Create swapchain images, image views, and recreate them on window resize.</label></li>
-      <li><label><input type="checkbox">Create command pools, command buffers, semaphores, and fences for frames in flight.</label></li>
+      <li><label><input type="checkbox" checked>Choose and document the desktop windowing dependency for PC builds.</label></li>
+      <li><label><input type="checkbox" checked>Add a desktop platform package that creates, polls, and closes a window.</label></li>
+      <li><label><input type="checkbox" checked>Add a fixed update/draw loop to the app lifecycle without exposing platform details to game code.</label></li>
+      <li><label><input type="checkbox" checked>Create Vulkan instance setup with validation layers enabled in development builds.</label></li>
+      <li><label><input type="checkbox" checked>Select a physical device and create a logical device with graphics and present queues.</label></li>
+      <li><label><input type="checkbox" checked>Create swapchain images, image views, and recreate them on window resize.</label></li>
+      <li><label><input type="checkbox" checked>Create command pools, command buffers, semaphores, and fences for frames in flight.</label></li>
       <li><label><input type="checkbox">Create minimal buffer and image upload helpers for a quad vertex buffer and one texture.</label></li>
-      <li><label><input type="checkbox">Compile placeholder shaders to SPIR-V or add a documented shader compilation command.</label></li>
-      <li><label><input type="checkbox">Render one textured quad to the swapchain using a Vulkan renderer implementation.</label></li>
-      <li><label><input type="checkbox">Keep Vulkan types inside the Vulkan backend; game-facing packages continue to use engine types.</label></li>
+      <li><label><input type="checkbox" checked>Compile placeholder shaders to SPIR-V or add a documented shader compilation command.</label></li>
+      <li><label><input type="checkbox" checked>Render one textured quad to the swapchain using a Vulkan renderer implementation.</label></li>
+      <li><label><input type="checkbox" checked>Keep Vulkan types inside the Vulkan backend; game-facing packages continue to use engine types.</label></li>
       <li><label><input type="checkbox">Capture the first frame in RenderDoc and record any setup instructions.</label></li>
     </ul>
   </section>
@@ -54,20 +54,20 @@
     <div>
       <h2>Acceptance Checklist</h2>
       <ul>
-        <li><label><input type="checkbox">A desktop window opens and remains responsive until closed.</label></li>
-        <li><label><input type="checkbox">A textured quad is visible in the window.</label></li>
+        <li><label><input type="checkbox" checked>A desktop window opens and remains responsive until closed.</label></li>
+        <li><label><input type="checkbox" checked>A textured quad is visible in the window.</label></li>
         <li><label><input type="checkbox">The frame can be captured in RenderDoc.</label></li>
-        <li><label><input type="checkbox">The app runs a fixed update plus draw loop.</label></li>
-        <li><label><input type="checkbox">The existing NopRenderer still compiles as a fallback renderer.</label></li>
+        <li><label><input type="checkbox" checked>The app runs a fixed update plus draw loop.</label></li>
+        <li><label><input type="checkbox" checked>The existing NopRenderer still compiles as a fallback renderer.</label></li>
       </ul>
     </div>
     <div>
       <h2>Verification</h2>
       <ul>
-        <li><label><input type="checkbox">Run gofmt on edited Go files.</label></li>
-        <li><label><input type="checkbox">Run go test ./...</label></li>
-        <li><label><input type="checkbox">Run go vet ./...</label></li>
-        <li><label><input type="checkbox">Run the sandbox with the Vulkan renderer enabled.</label></li>
+        <li><label><input type="checkbox" checked>Run gofmt on edited Go files.</label></li>
+        <li><label><input type="checkbox" checked>Run go test ./...</label></li>
+        <li><label><input type="checkbox" checked>Run go vet ./...</label></li>
+        <li><label><input type="checkbox" checked>Run the sandbox with the Vulkan renderer enabled.</label></li>
       </ul>
     </div>
   </section>

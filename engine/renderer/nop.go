@@ -39,3 +39,12 @@ func (r *NopRenderer) EndFrame() error {
 	fmt.Println("present=nop")
 	return nil
 }
+
+func (r *NopRenderer) Resize(width, height int) error {
+	fmt.Printf("resize=%dx%d renderer=nop\n", width, height)
+	return nil
+}
+
+func (r *NopRenderer) Close() error {
+	return nil
+}

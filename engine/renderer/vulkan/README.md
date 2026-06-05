@@ -2,7 +2,15 @@
 
 This package will contain the Vulkan renderer implementation.
 
-Current status: scaffold only.
+Current status: phase-00 foundation.
+
+The backend opens a GLFW desktop surface through `engine/platform/desktop`, creates
+a Vulkan instance/device/swapchain, and renders one checker-textured quad using
+SPIR-V shaders from `shaders/bin`.
+
+On macOS, the current `vulkan-go` binding needs small Darwin shims for instance,
+device, and graphics pipeline creation because its generated create-info packing
+does not work reliably with Homebrew MoltenVK portability requirements.
 
 ## Planned Files
 
@@ -28,3 +36,13 @@ Current status: scaffold only.
 ## Design Rule
 
 The Vulkan backend must implement `engine/renderer.Renderer` and should not leak Vulkan types into `engine/graphics`, `engine/scene`, or `cmd/sandbox`.
+
+## Running
+
+```bash
+make shaders
+make run
+```
+
+Set `LUMAGO_RENDERER=nop` or use `make run-nop` for the fallback renderer. Set
+`LUMAGO_VULKAN_DEBUG=1` to print requested Vulkan instance/device extensions.

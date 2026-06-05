@@ -115,24 +115,29 @@ Frame
 
 - Go 1.26.4+
 - GitHub CLI, optional
-- Vulkan SDK, later, when the real Vulkan backend is implemented
+- Vulkan runtime/tooling for the phase-00 PC backend:
+  - `brew install glfw vulkan-loader vulkan-headers vulkan-validationlayers vulkan-tools shaderc`
 
 ## Quick Start
 
 ```bash
 go test ./...
-go run ./cmd/sandbox
+make shaders
+make run
 ```
 
-The current scaffold uses a `NopRenderer` so the repository can compile before the Vulkan backend is implemented.
+Use `make run-nop` to run the sandbox through the fallback `NopRenderer`.
 
 ## Development Commands
 
 ```bash
 make fmt
 make test
+make shaders
 make run
 ```
+
+On macOS/Homebrew, `make run` sets the loader and MoltenVK ICD environment expected by the current `vulkan-go` binding. For direct runs, use the same environment shown in the `Makefile`.
 
 ## Current Package API Sketch
 
