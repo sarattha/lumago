@@ -23,23 +23,23 @@ func (r *Renderer) createQuadResources() error {
 		{Position: lmath.Vec2{X: 0.65, Y: 0.65}, UV: lmath.Vec2{X: 1, Y: 0}, Color: lmath.White()},
 		{Position: lmath.Vec2{X: -0.65, Y: 0.65}, UV: lmath.Vec2{X: 0, Y: 0}, Color: lmath.White()},
 	})
-	if err := r.createDeviceBuffer(
-		vertexBytes,
-		vk.BufferUsageFlags(vk.BufferUsageTransferDstBit|vk.BufferUsageVertexBufferBit),
-		&r.vertexBuffer,
-		&r.vertexMemory,
-	); err != nil {
-		return fmt.Errorf("create quad vertex buffer: %w", err)
-	}
-
 	indexBytes := quadIndexBytes()
-	if err := r.createDeviceBuffer(
-		indexBytes,
-		vk.BufferUsageFlags(vk.BufferUsageTransferDstBit|vk.BufferUsageIndexBufferBit),
-		&r.indexBuffer,
-		&r.indexMemory,
-	); err != nil {
-		return fmt.Errorf("create quad index buffer: %w", err)
+	for i := range r.spriteFrames {
+		frame := &r.spriteFrames[i]
+		if err := r.createHostBuffer(len(vertexBytes), vk.BufferUsageFlags(vk.BufferUsageVertexBufferBit), &frame.vertexBuffer, &frame.vertexMemory); err != nil {
+			return fmt.Errorf("create frame %d sprite vertex buffer: %w", i, err)
+		}
+		frame.vertexCapacity = len(vertexBytes)
+		if err := r.copyToMemory(frame.vertexMemory, vertexBytes); err != nil {
+			return err
+		}
+		if err := r.createHostBuffer(len(indexBytes), vk.BufferUsageFlags(vk.BufferUsageIndexBufferBit), &frame.indexBuffer, &frame.indexMemory); err != nil {
+			return fmt.Errorf("create frame %d sprite index buffer: %w", i, err)
+		}
+		frame.indexCapacity = len(indexBytes)
+		if err := r.copyToMemory(frame.indexMemory, indexBytes); err != nil {
+			return err
+		}
 	}
 
 	if err := r.createQuadTexture(); err != nil {
@@ -77,24 +77,13 @@ func (r *Renderer) cleanupQuadResources() {
 		vk.FreeMemory(r.device, r.textureMemory, nil)
 		r.textureMemory = vk.NullDeviceMemory
 	}
-	if r.indexBuffer != vk.NullBuffer {
-		vk.DestroyBuffer(r.device, r.indexBuffer, nil)
-		r.indexBuffer = vk.NullBuffer
+	for i := range r.spriteFrames {
+		frame := &r.spriteFrames[i]
+		r.destroyBuffer(&frame.indexBuffer, &frame.indexMemory)
+		frame.indexCapacity = 0
+		r.destroyBuffer(&frame.vertexBuffer, &frame.vertexMemory)
+		frame.vertexCapacity = 0
 	}
-	if r.indexMemory != vk.NullDeviceMemory {
-		vk.FreeMemory(r.device, r.indexMemory, nil)
-		r.indexMemory = vk.NullDeviceMemory
-	}
-	r.indexCapacity = 0
-	if r.vertexBuffer != vk.NullBuffer {
-		vk.DestroyBuffer(r.device, r.vertexBuffer, nil)
-		r.vertexBuffer = vk.NullBuffer
-	}
-	if r.vertexMemory != vk.NullDeviceMemory {
-		vk.FreeMemory(r.device, r.vertexMemory, nil)
-		r.vertexMemory = vk.NullDeviceMemory
-	}
-	r.vertexCapacity = 0
 }
 
 func (r *Renderer) createDeviceBuffer(data []byte, usage vk.BufferUsageFlags, buffer *vk.Buffer, memory *vk.DeviceMemory) error {

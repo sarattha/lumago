@@ -22,6 +22,17 @@ type Config struct {
 	Validation      bool
 }
 
+type spriteFrameResources struct {
+	vertexBuffer   vk.Buffer
+	vertexMemory   vk.DeviceMemory
+	indexBuffer    vk.Buffer
+	indexMemory    vk.DeviceMemory
+	vertexCapacity int
+	indexCapacity  int
+	vertexUpload   []byte
+	indexUpload    []byte
+}
+
 type Renderer struct {
 	window *desktop.Window
 
@@ -48,14 +59,7 @@ type Renderer struct {
 	commandPool    vk.CommandPool
 	commandBuffers []vk.CommandBuffer
 
-	vertexBuffer        vk.Buffer
-	vertexMemory        vk.DeviceMemory
-	indexBuffer         vk.Buffer
-	indexMemory         vk.DeviceMemory
-	vertexCapacity      int
-	indexCapacity       int
-	vertexUpload        []byte
-	indexUpload         []byte
+	spriteFrames        [framesInFlight]spriteFrameResources
 	textureImage        vk.Image
 	textureMemory       vk.DeviceMemory
 	textureImageView    vk.ImageView
@@ -734,8 +738,9 @@ func (r *Renderer) recordCommandBuffer(commandBuffer vk.CommandBuffer, imageInde
 	vk.CmdBeginRenderPass(commandBuffer, &renderPassInfo, vk.SubpassContentsInline)
 	vk.CmdBindPipeline(commandBuffer, vk.PipelineBindPointGraphics, r.pipeline)
 	vk.CmdBindDescriptorSets(commandBuffer, vk.PipelineBindPointGraphics, r.pipelineLayout, 0, 1, []vk.DescriptorSet{r.descriptorSet}, 0, nil)
-	vk.CmdBindVertexBuffers(commandBuffer, 0, 1, []vk.Buffer{r.vertexBuffer}, []vk.DeviceSize{0})
-	vk.CmdBindIndexBuffer(commandBuffer, r.indexBuffer, 0, vk.IndexTypeUint16)
+	frame := &r.spriteFrames[r.frame]
+	vk.CmdBindVertexBuffers(commandBuffer, 0, 1, []vk.Buffer{frame.vertexBuffer}, []vk.DeviceSize{0})
+	vk.CmdBindIndexBuffer(commandBuffer, frame.indexBuffer, 0, vk.IndexTypeUint16)
 	if r.pendingBatch.Stats.IndexCount > 0 {
 		vk.CmdDrawIndexed(commandBuffer, uint32(r.pendingBatch.Stats.IndexCount), 1, 0, 0, 0)
 	}
@@ -748,42 +753,43 @@ func (r *Renderer) uploadSpriteBatch(batch graphics.SpriteBatch) error {
 		return nil
 	}
 
-	r.vertexUpload = packSpriteVertices(r.vertexUpload, batch.Vertices)
-	r.indexUpload = packSpriteIndices(r.indexUpload, batch.Indices)
+	frame := &r.spriteFrames[r.frame]
+	frame.vertexUpload = packSpriteVertices(frame.vertexUpload, batch.Vertices)
+	frame.indexUpload = packSpriteIndices(frame.indexUpload, batch.Indices)
 
-	if err := r.ensureHostVertexBuffer(len(r.vertexUpload)); err != nil {
+	if err := r.ensureHostVertexBuffer(frame, len(frame.vertexUpload)); err != nil {
 		return err
 	}
-	if err := r.ensureHostIndexBuffer(len(r.indexUpload)); err != nil {
+	if err := r.ensureHostIndexBuffer(frame, len(frame.indexUpload)); err != nil {
 		return err
 	}
-	if err := r.copyToMemory(r.vertexMemory, r.vertexUpload); err != nil {
+	if err := r.copyToMemory(frame.vertexMemory, frame.vertexUpload); err != nil {
 		return err
 	}
-	return r.copyToMemory(r.indexMemory, r.indexUpload)
+	return r.copyToMemory(frame.indexMemory, frame.indexUpload)
 }
 
-func (r *Renderer) ensureHostVertexBuffer(size int) error {
-	if size <= r.vertexCapacity {
+func (r *Renderer) ensureHostVertexBuffer(frame *spriteFrameResources, size int) error {
+	if size <= frame.vertexCapacity {
 		return nil
 	}
-	r.destroyBuffer(&r.vertexBuffer, &r.vertexMemory)
-	if err := r.createHostBuffer(size, vk.BufferUsageFlags(vk.BufferUsageVertexBufferBit), &r.vertexBuffer, &r.vertexMemory); err != nil {
+	r.destroyBuffer(&frame.vertexBuffer, &frame.vertexMemory)
+	if err := r.createHostBuffer(size, vk.BufferUsageFlags(vk.BufferUsageVertexBufferBit), &frame.vertexBuffer, &frame.vertexMemory); err != nil {
 		return err
 	}
-	r.vertexCapacity = size
+	frame.vertexCapacity = size
 	return nil
 }
 
-func (r *Renderer) ensureHostIndexBuffer(size int) error {
-	if size <= r.indexCapacity {
+func (r *Renderer) ensureHostIndexBuffer(frame *spriteFrameResources, size int) error {
+	if size <= frame.indexCapacity {
 		return nil
 	}
-	r.destroyBuffer(&r.indexBuffer, &r.indexMemory)
-	if err := r.createHostBuffer(size, vk.BufferUsageFlags(vk.BufferUsageIndexBufferBit), &r.indexBuffer, &r.indexMemory); err != nil {
+	r.destroyBuffer(&frame.indexBuffer, &frame.indexMemory)
+	if err := r.createHostBuffer(size, vk.BufferUsageFlags(vk.BufferUsageIndexBufferBit), &frame.indexBuffer, &frame.indexMemory); err != nil {
 		return err
 	}
-	r.indexCapacity = size
+	frame.indexCapacity = size
 	return nil
 }
 
