@@ -6,7 +6,7 @@ import (
 	"math"
 	"unsafe"
 
-	vk "github.com/vulkan-go/vulkan"
+	vk "github.com/sarattha/lumago/engine/renderer/vulkan/internal/vk"
 )
 
 const (
@@ -42,7 +42,7 @@ func (r *Renderer) createQuadResources() error {
 }
 
 func (r *Renderer) cleanupQuadResources() {
-	if r.device == nil {
+	if r.device == vk.NullDevice {
 		return
 	}
 	if r.descriptorPool != vk.NullDescriptorPool {
@@ -362,9 +362,9 @@ func (r *Renderer) beginSingleTimeCommands() (vk.CommandBuffer, error) {
 		Level:              vk.CommandBufferLevelPrimary,
 		CommandBufferCount: 1,
 	}
-	commandBuffers := []vk.CommandBuffer{nil}
+	commandBuffers := []vk.CommandBuffer{vk.NullCommandBuffer}
 	if err := check(vk.AllocateCommandBuffers(r.device, &allocInfo, commandBuffers), "allocate upload command buffer"); err != nil {
-		return nil, err
+		return vk.NullCommandBuffer, err
 	}
 	commandBuffer := commandBuffers[0]
 	beginInfo := vk.CommandBufferBeginInfo{
@@ -373,7 +373,7 @@ func (r *Renderer) beginSingleTimeCommands() (vk.CommandBuffer, error) {
 	}
 	if err := check(vk.BeginCommandBuffer(commandBuffer, &beginInfo), "begin upload command buffer"); err != nil {
 		vk.FreeCommandBuffers(r.device, r.commandPool, 1, []vk.CommandBuffer{commandBuffer})
-		return nil, err
+		return vk.NullCommandBuffer, err
 	}
 	return commandBuffer, nil
 }

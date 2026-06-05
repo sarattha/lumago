@@ -177,30 +177,30 @@ import (
 	"fmt"
 	"unsafe"
 
-	vk "github.com/vulkan-go/vulkan"
+	vk "github.com/sarattha/lumago/engine/renderer/vulkan/internal/vk"
 )
 
 func createNativeInstanceDarwin() (vk.Instance, error) {
 	var instance C.VkInstance
 	result := C.lumagoCreateInstanceDarwin(&instance)
 	if result != C.VK_SUCCESS {
-		return nil, fmt.Errorf("create Vulkan instance: native result %d", result)
+		return vk.NullInstance, fmt.Errorf("create Vulkan instance: native result %d", result)
 	}
-	return vk.Instance(unsafe.Pointer(instance)), nil
+	return vk.InstanceFromPointer(unsafe.Pointer(instance)), nil
 }
 
 func createNativeDeviceDarwin(physicalDevice vk.PhysicalDevice, graphicsFamily, presentFamily uint32) (vk.Device, error) {
 	var device C.VkDevice
 	result := C.lumagoCreateDeviceDarwin(
-		C.VkPhysicalDevice(unsafe.Pointer(physicalDevice)),
+		C.VkPhysicalDevice(vk.PhysicalDeviceHandle(physicalDevice)),
 		C.uint32_t(graphicsFamily),
 		C.uint32_t(presentFamily),
 		&device,
 	)
 	if result != C.VK_SUCCESS {
-		return nil, fmt.Errorf("create logical device: native result %d", result)
+		return vk.NullDevice, fmt.Errorf("create logical device: native result %d", result)
 	}
-	return vk.Device(unsafe.Pointer(device)), nil
+	return vk.DeviceFromPointer(unsafe.Pointer(device)), nil
 }
 
 func createNativeQuadPipelineDarwin(device vk.Device, renderPass vk.RenderPass, extent vk.Extent2D, descriptorSetLayout vk.DescriptorSetLayout, vert, frag vk.ShaderModule) (vk.PipelineLayout, vk.Pipeline, error) {
@@ -208,17 +208,17 @@ func createNativeQuadPipelineDarwin(device vk.Device, renderPass vk.RenderPass, 
 	var pipeline C.VkPipeline
 	cExtent := C.VkExtent2D{width: C.uint32_t(extent.Width), height: C.uint32_t(extent.Height)}
 	result := C.lumagoCreateQuadPipelineDarwin(
-		C.VkDevice(unsafe.Pointer(device)),
-		C.VkRenderPass(unsafe.Pointer(renderPass)),
+		C.VkDevice(vk.DeviceHandle(device)),
+		C.VkRenderPass(vk.RenderPassHandle(renderPass)),
 		cExtent,
-		C.VkDescriptorSetLayout(unsafe.Pointer(descriptorSetLayout)),
-		C.VkShaderModule(unsafe.Pointer(vert)),
-		C.VkShaderModule(unsafe.Pointer(frag)),
+		C.VkDescriptorSetLayout(vk.DescriptorSetLayoutHandle(descriptorSetLayout)),
+		C.VkShaderModule(vk.ShaderModuleHandle(vert)),
+		C.VkShaderModule(vk.ShaderModuleHandle(frag)),
 		&layout,
 		&pipeline,
 	)
 	if result != C.VK_SUCCESS {
 		return vk.NullPipelineLayout, vk.NullPipeline, fmt.Errorf("create graphics pipeline: native result %d", result)
 	}
-	return vk.PipelineLayout(unsafe.Pointer(layout)), vk.Pipeline(unsafe.Pointer(pipeline)), nil
+	return vk.PipelineLayoutFromPointer(unsafe.Pointer(layout)), vk.PipelineFromPointer(unsafe.Pointer(pipeline)), nil
 }

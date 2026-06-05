@@ -10,7 +10,7 @@ import (
 
 	"github.com/sarattha/lumago/engine/graphics"
 	"github.com/sarattha/lumago/engine/platform/desktop"
-	vk "github.com/vulkan-go/vulkan"
+	vk "github.com/sarattha/lumago/engine/renderer/vulkan/internal/vk"
 )
 
 const framesInFlight = 2
@@ -191,7 +191,7 @@ func (r *Renderer) Resize(width, height int) error {
 }
 
 func (r *Renderer) Close() error {
-	if r.device != nil {
+	if r.device != vk.NullDevice {
 		vk.DeviceWaitIdle(r.device)
 	}
 	r.cleanupSwapchain()
@@ -210,13 +210,13 @@ func (r *Renderer) Close() error {
 	if r.commandPool != vk.NullCommandPool {
 		vk.DestroyCommandPool(r.device, r.commandPool, nil)
 	}
-	if r.device != nil {
+	if r.device != vk.NullDevice {
 		vk.DestroyDevice(r.device, nil)
 	}
 	if r.surface != vk.NullSurface {
 		vk.DestroySurface(r.instance, r.surface, nil)
 	}
-	if r.instance != nil {
+	if r.instance != vk.NullInstance {
 		vk.DestroyInstance(r.instance, nil)
 	}
 	return nil
@@ -226,11 +226,11 @@ func (r *Renderer) init() error {
 	if err := r.createInstance(); err != nil {
 		return err
 	}
-	surface, err := r.window.CreateSurface(r.instance)
+	surface, err := r.window.CreateSurface(vk.InstanceHandle(r.instance))
 	if err != nil {
 		return err
 	}
-	r.surface = surface
+	r.surface = vk.SurfaceFromPointer(surface)
 	if err := r.pickPhysicalDevice(); err != nil {
 		return err
 	}
@@ -742,7 +742,7 @@ func (r *Renderer) recreateSwapchain() error {
 }
 
 func (r *Renderer) cleanupSwapchain() {
-	if r.device == nil {
+	if r.device == vk.NullDevice {
 		return
 	}
 	for _, framebuffer := range r.framebuffers {

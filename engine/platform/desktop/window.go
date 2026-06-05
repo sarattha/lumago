@@ -26,7 +26,6 @@ import (
 	"unsafe"
 
 	"github.com/go-gl/glfw/v3.3/glfw"
-	vk "github.com/vulkan-go/vulkan"
 )
 
 type Window struct {
@@ -64,14 +63,14 @@ func (w *Window) RequiredInstanceExtensions() []string {
 	return w.window.GetRequiredInstanceExtensions()
 }
 
-func (w *Window) CreateSurface(instance vk.Instance) (vk.Surface, error) {
+func (w *Window) CreateSurface(instance unsafe.Pointer) (unsafe.Pointer, error) {
 	window := *(**C.GLFWwindow)(unsafe.Pointer(w.window))
 	var surface C.VkSurfaceKHR
-	result := C.lumagoCreateWindowSurface(C.VkInstance(unsafe.Pointer(instance)), window, &surface)
+	result := C.lumagoCreateWindowSurface(C.VkInstance(instance), window, &surface)
 	if result != C.VK_SUCCESS {
-		return vk.NullSurface, errors.New("desktop: failed to create Vulkan window surface")
+		return nil, errors.New("desktop: failed to create Vulkan window surface")
 	}
-	return vk.Surface(unsafe.Pointer(surface)), nil
+	return unsafe.Pointer(surface), nil
 }
 
 func (w *Window) ShouldClose() bool {

@@ -9,13 +9,13 @@ a Vulkan instance/device/swapchain, uploads one quad vertex buffer, one index
 buffer, and one small texture, then renders the textured quad using SPIR-V
 shaders from `shaders/bin`.
 
-On macOS, the current `vulkan-go` binding needs small Darwin shims for instance,
-device, surface, and graphics pipeline creation because its generated create-info
-packing does not work reliably with Homebrew MoltenVK portability requirements.
+The backend uses a backend-local Vulkan layer in `internal/vk`. It exposes only
+the Vulkan calls and structs needed by the active renderer phase and calls the
+system Vulkan SDK or MoltenVK directly through cgo.
 
-Future Vulkan work should continue this direction deliberately: add a narrow
-internal shim for only the Vulkan calls required by the active phase, instead of
-depending on a broad generated binding surface.
+Future Vulkan work should continue this direction deliberately: add only the
+Vulkan/MoltenVK calls required by the active phase to the local layer, instead
+of depending on a broad generated binding surface.
 
 ## Planned Files
 
