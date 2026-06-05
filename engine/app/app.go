@@ -121,7 +121,11 @@ func (g *Game) runFrame() error {
 		return err
 	}
 
-	if err := g.renderer.SubmitSprites(g.scene.Sprites()); err != nil {
+	width, height := g.Config.Width, g.Config.Height
+	if g.window != nil {
+		width, height = g.window.FramebufferSize()
+	}
+	if err := g.renderer.SubmitSpriteBatch(g.scene.BuildSpriteBatch(width, height)); err != nil {
 		return err
 	}
 

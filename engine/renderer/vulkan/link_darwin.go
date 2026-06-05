@@ -88,9 +88,9 @@ static inline VkResult lumagoCreateQuadPipelineDarwin(
 	vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 	VkVertexInputBindingDescription binding = {0};
 	binding.binding = 0;
-	binding.stride = 16;
+	binding.stride = 32;
 	binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-	VkVertexInputAttributeDescription attributes[2] = {0};
+	VkVertexInputAttributeDescription attributes[3] = {0};
 	attributes[0].location = 0;
 	attributes[0].binding = 0;
 	attributes[0].format = VK_FORMAT_R32G32_SFLOAT;
@@ -99,9 +99,13 @@ static inline VkResult lumagoCreateQuadPipelineDarwin(
 	attributes[1].binding = 0;
 	attributes[1].format = VK_FORMAT_R32G32_SFLOAT;
 	attributes[1].offset = 8;
+	attributes[2].location = 2;
+	attributes[2].binding = 0;
+	attributes[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	attributes[2].offset = 16;
 	vertexInput.vertexBindingDescriptionCount = 1;
 	vertexInput.pVertexBindingDescriptions = &binding;
-	vertexInput.vertexAttributeDescriptionCount = 2;
+	vertexInput.vertexAttributeDescriptionCount = 3;
 	vertexInput.pVertexAttributeDescriptions = attributes;
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly = {0};

@@ -4,6 +4,7 @@ import "github.com/sarattha/lumago/engine/graphics"
 
 type Scene struct {
 	sprites   []graphics.SpriteDrawCommand
+	batch     graphics.SpriteBatch
 	lights    []graphics.Light2D
 	occluders []graphics.Occluder2D
 	camera    graphics.Camera2D
@@ -37,6 +38,11 @@ func (s *Scene) SetCamera(camera graphics.Camera2D) {
 
 func (s *Scene) Sprites() []graphics.SpriteDrawCommand {
 	return s.sprites
+}
+
+func (s *Scene) BuildSpriteBatch(width, height int) graphics.SpriteBatch {
+	s.batch.Build(s.sprites, s.camera, width, height)
+	return s.batch
 }
 
 func (s *Scene) Lights() []graphics.Light2D {

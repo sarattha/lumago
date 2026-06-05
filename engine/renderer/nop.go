@@ -8,6 +8,7 @@ import (
 
 type NopRenderer struct {
 	frame int
+	stats FrameStats
 }
 
 func NewNopRenderer() *NopRenderer {
@@ -20,8 +21,14 @@ func (r *NopRenderer) BeginFrame(camera graphics.Camera2D) error {
 	return nil
 }
 
-func (r *NopRenderer) SubmitSprites(commands []graphics.SpriteDrawCommand) error {
-	fmt.Printf("sprites=%d\n", len(commands))
+func (r *NopRenderer) SubmitSpriteBatch(batch graphics.SpriteBatch) error {
+	r.stats = FrameStats{
+		Sprites:   batch.Stats.SpriteCount,
+		DrawCalls: batch.Stats.DrawCalls,
+		Vertices:  batch.Stats.VertexCount,
+		Indices:   batch.Stats.IndexCount,
+	}
+	fmt.Printf("sprites=%d draws=%d vertices=%d indices=%d\n", r.stats.Sprites, r.stats.DrawCalls, r.stats.Vertices, r.stats.Indices)
 	return nil
 }
 
@@ -38,6 +45,10 @@ func (r *NopRenderer) SubmitOccluders(occluders []graphics.Occluder2D) error {
 func (r *NopRenderer) EndFrame() error {
 	fmt.Println("present=nop")
 	return nil
+}
+
+func (r *NopRenderer) Stats() FrameStats {
+	return r.stats
 }
 
 func (r *NopRenderer) Resize(width, height int) error {

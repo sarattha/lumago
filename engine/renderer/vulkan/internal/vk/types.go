@@ -233,10 +233,11 @@ const (
 type Format int32
 
 const (
-	FormatUndefined     Format = 0
-	FormatB8g8r8a8Srgb  Format = 50
-	FormatR8g8b8a8Unorm Format = 37
-	FormatR32g32Sfloat  Format = 103
+	FormatUndefined          Format = 0
+	FormatB8g8r8a8Srgb       Format = 50
+	FormatR8g8b8a8Unorm      Format = 37
+	FormatR32g32Sfloat       Format = 103
+	FormatR32g32b32a32Sfloat Format = 109
 )
 
 type ColorSpace int32
