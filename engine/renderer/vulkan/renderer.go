@@ -724,6 +724,10 @@ func (r *Renderer) recreateSwapchain() error {
 	width, height := r.window.FramebufferSize()
 	if width == 0 || height == 0 {
 		r.window.WaitForFramebuffer()
+		width, height = r.window.FramebufferSize()
+		if width == 0 || height == 0 || r.window.ShouldClose() {
+			return nil
+		}
 	}
 	if err := check(vk.DeviceWaitIdle(r.device), "wait for resize idle"); err != nil {
 		return err

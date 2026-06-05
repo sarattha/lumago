@@ -19,7 +19,7 @@ shaders:
 	glslc shaders/quad.vert -o shaders/bin/quad.vert.spv
 	glslc shaders/quad.frag -o shaders/bin/quad.frag.spv
 
-run:
+run: shaders
 	$(VULKAN_ENV) go run ./cmd/sandbox
 
 run-nop:

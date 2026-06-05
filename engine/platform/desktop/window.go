@@ -87,6 +87,9 @@ func (w *Window) FramebufferSize() (int, int) {
 
 func (w *Window) WaitForFramebuffer() {
 	for {
+		if w.ShouldClose() {
+			return
+		}
 		width, height := w.FramebufferSize()
 		if width > 0 && height > 0 {
 			return
