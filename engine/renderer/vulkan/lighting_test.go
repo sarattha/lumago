@@ -16,6 +16,9 @@ func TestDefaultLightingRenderTargetsMatchSwapchainExtent(t *testing.T) {
 			t.Fatalf("%s extent=%dx%d, want 1280x720", target.Name, target.Width, target.Height)
 		}
 	}
+	if targets.SceneEmissive.Width != 1280 || targets.SceneEmissive.Height != 720 {
+		t.Fatalf("scene emissive extent=%dx%d, want 1280x720", targets.SceneEmissive.Width, targets.SceneEmissive.Height)
+	}
 	if targets.SceneNormal.Format != vk.FormatR8g8b8a8Unorm {
 		t.Fatalf("normal format=%d, want R8G8B8A8", targets.SceneNormal.Format)
 	}
@@ -31,6 +34,9 @@ func TestDefaultLightingPasses(t *testing.T) {
 	}
 	if len(passes) != len(want) {
 		t.Fatalf("pass count=%d, want %d", len(passes), len(want))
+	}
+	if len(passes[0].Outputs) != 2 || passes[0].Outputs[1] != lightingTargetSceneEmissive {
+		t.Fatalf("sprite color outputs=%v, want color and emissive", passes[0].Outputs)
 	}
 	for i, kind := range want {
 		if passes[i].Kind != kind {
@@ -111,4 +117,84 @@ func TestPrepareLightsForFrameTransformsWorldLightsToFramebufferSpace(t *testing
 	if lights[0].Position.X != 12 || lights[0].Radius != 50 {
 		t.Fatalf("source light was mutated: %+v", lights[0])
 	}
+}
+
+func TestLitSpriteBatchForLightingRespondsToInteriorLights(t *testing.T) {
+	batch := singleSpriteBatch(graphics.Material2D{})
+	config := graphics.LightingConfig2D{
+		Ambient: lmath.Color{R: 0, G: 0, B: 0, A: 1},
+	}
+
+	dark, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, batch, nil, config, vk.Extent2D{Width: 100, Height: 100})
+	lit, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, batch, []graphics.Light2D{
+		{
+			Position:  lmath.Vec2{X: 50, Y: 50},
+			Radius:    8,
+			Color:     lmath.White(),
+			Intensity: 1,
+			Falloff:   1,
+		},
+	}, config, vk.Extent2D{Width: 100, Height: 100})
+
+	center := litSpriteVertexCount() / 2
+	if !(dark.Vertices[center].Color.R < lit.Vertices[center].Color.R) {
+		t.Fatalf("expected interior light to increase center red channel: dark=%+v lit=%+v", dark.Vertices[center].Color, lit.Vertices[center].Color)
+	}
+	if lit.Vertices[0].Color.R != 0 {
+		t.Fatalf("corner was lit by an interior-only light: %+v", lit.Vertices[0].Color)
+	}
+	if batch.Vertices[0].Color != lmath.White() {
+		t.Fatalf("source batch vertex was mutated: %+v", batch.Vertices[0].Color)
+	}
+}
+
+func TestLitSpriteBatchForLightingSamplesRegisteredNormalMaps(t *testing.T) {
+	flatNormal := graphics.TextureID(9001)
+	tiltedNormal := graphics.TextureID(9002)
+	graphics.RegisterTextureData(graphics.TextureData{
+		ID:     flatNormal,
+		Width:  1,
+		Height: 1,
+		Pixels: []lmath.Color{{R: 0.5, G: 0.5, B: 1, A: 1}},
+	})
+	graphics.RegisterTextureData(graphics.TextureData{
+		ID:     tiltedNormal,
+		Width:  1,
+		Height: 1,
+		Pixels: []lmath.Color{{R: 1, G: 0.5, B: 1, A: 1}},
+	})
+	flatBatch := singleSpriteBatch(graphics.Material2D{Normal: flatNormal})
+	tiltedBatch := singleSpriteBatch(graphics.Material2D{Normal: tiltedNormal})
+	config := graphics.LightingConfig2D{
+		Ambient:   lmath.White(),
+		DebugView: graphics.DebugViewSceneNormal,
+	}
+
+	flat, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, flatBatch, nil, config, vk.Extent2D{Width: 100, Height: 100})
+	tilted, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, tiltedBatch, nil, config, vk.Extent2D{Width: 100, Height: 100})
+
+	if flat.Vertices[0].Color == tilted.Vertices[0].Color {
+		t.Fatalf("different normal maps produced same debug output: flat=%+v tilted=%+v", flat.Vertices[0].Color, tilted.Vertices[0].Color)
+	}
+	if tilted.Vertices[0].Color.R != 1 {
+		t.Fatalf("tilted normal red=%f, want 1", tilted.Vertices[0].Color.R)
+	}
+}
+
+func singleSpriteBatch(material graphics.Material2D) graphics.SpriteBatch {
+	var batch graphics.SpriteBatch
+	batch.Build([]graphics.SpriteDrawCommand{
+		{
+			Sprite: graphics.Sprite{
+				Material: material,
+				Src:      lmath.Rect{W: 20, H: 20},
+				Color:    lmath.White(),
+			},
+			Transform: graphics.Transform2D{
+				Position: lmath.Vec2{X: 50, Y: 50},
+				Scale:    lmath.Vec2{X: 1, Y: 1},
+			},
+		},
+	}, graphics.DefaultCamera2D(), 100, 100)
+	return batch
 }

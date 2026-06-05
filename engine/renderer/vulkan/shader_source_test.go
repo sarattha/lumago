@@ -10,10 +10,10 @@ import (
 func TestLightingShaderSourcesAreNotPlaceholders(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "shaders")
 	tests := map[string][]string{
-		"sprite_color.frag":  {"albedoTexture", "texture(albedoTexture"},
+		"sprite_color.frag":  {"albedoTexture", "materialPass.emissive", "outEmissive"},
 		"sprite_normal.frag": {"normalTexture", "hasNormalMap", "vec4(0.5, 0.5, 1.0, 1.0)"},
 		"light_accum.frag":   {"sceneNormal", "PointLight", "uniforms.ambient", "dot(normal, lightDir)"},
-		"composite.frag":     {"sceneColor", "lightBuffer", "debugView", "color.rgb * light.rgb"},
+		"composite.frag":     {"sceneColor", "lightBuffer", "sceneEmissive", "debugView", "color.rgb * light.rgb + emissive.rgb"},
 	}
 
 	for name, snippets := range tests {

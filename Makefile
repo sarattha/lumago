@@ -18,6 +18,11 @@ shaders:
 	mkdir -p shaders/bin
 	glslc shaders/quad.vert -o shaders/bin/quad.vert.spv
 	glslc shaders/quad.frag -o shaders/bin/quad.frag.spv
+	glslc shaders/sprite_color.vert -o shaders/bin/sprite_color.vert.spv
+	glslc shaders/sprite_color.frag -o shaders/bin/sprite_color.frag.spv
+	glslc shaders/sprite_normal.frag -o shaders/bin/sprite_normal.frag.spv
+	glslc shaders/light_accum.frag -o shaders/bin/light_accum.frag.spv
+	glslc shaders/composite.frag -o shaders/bin/composite.frag.spv
 
 run: shaders
 	$(VULKAN_ENV) go run ./cmd/sandbox

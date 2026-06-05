@@ -42,3 +42,14 @@ func TestSceneLightingConfig(t *testing.T) {
 		t.Fatalf("lighting config=%+v", got)
 	}
 }
+
+func TestSceneSetLightsReplacesLights(t *testing.T) {
+	s := New()
+	s.AddLight(graphics.Light2D{Radius: 1})
+	s.SetLights([]graphics.Light2D{{Radius: 2}, {Radius: 3}})
+
+	got := s.Lights()
+	if len(got) != 2 || got[0].Radius != 2 || got[1].Radius != 3 {
+		t.Fatalf("lights=%+v", got)
+	}
+}

@@ -1,13 +1,24 @@
 package main
 
 import (
+	"fmt"
+	"math"
+	"os"
+	"runtime"
+	"time"
+
 	"github.com/sarattha/lumago/engine/app"
 	"github.com/sarattha/lumago/engine/graphics"
 	lmath "github.com/sarattha/lumago/engine/math"
+	"github.com/sarattha/lumago/engine/platform/desktop"
+	"github.com/sarattha/lumago/engine/renderer"
+	vulkanrenderer "github.com/sarattha/lumago/engine/renderer/vulkan"
 	"github.com/sarattha/lumago/engine/scene"
 )
 
 func main() {
+	runtime.LockOSThread()
+
 	game := app.NewGame(app.Config{
 		Width:  1280,
 		Height: 720,
@@ -17,7 +28,7 @@ func main() {
 	world := scene.New()
 	world.SetLightingConfig(graphics.LightingConfig2D{
 		Ambient:   lmath.Color{R: 0.10, G: 0.10, B: 0.13, A: 1},
-		DebugView: graphics.DebugViewFinalComposite,
+		DebugView: debugViewFromEnv(),
 	})
 
 	floor := material(game, "floor", 0.80, 0)
@@ -30,13 +41,39 @@ func main() {
 	addSprite(world, character, lmath.Rect{W: 64, H: 96}, lmath.Vec2{X: 440, Y: 395}, lmath.Color{R: 0.95, G: 0.82, B: 0.62, A: 1}, 2)
 	addSprite(world, prop, lmath.Rect{W: 80, H: 64}, lmath.Vec2{X: 610, Y: 405}, lmath.Color{R: 0.52, G: 0.84, B: 0.78, A: 1}, 2)
 
-	world.AddLight(light(320, 300, 340, lmath.Color{R: 1.00, G: 0.78, B: 0.45, A: 1}, 1.9))
-	world.AddLight(light(730, 320, 280, lmath.Color{R: 0.45, G: 0.68, B: 1.00, A: 1}, 1.4))
-	world.AddLight(light(470, 520, 220, lmath.Color{R: 0.85, G: 0.42, B: 1.00, A: 1}, 1.1))
-	world.AddLight(light(850, 480, 380, lmath.Color{R: 0.55, G: 1.00, B: 0.70, A: 1}, 1.2))
-
+	updateLights(world, 0)
 	game.SetScene(world)
-	_ = game
+	lightTime := float32(0)
+	game.SetUpdateFunc(func(dt time.Duration) error {
+		lightTime += float32(dt.Seconds())
+		updateLights(world, lightTime)
+		return nil
+	})
+
+	if os.Getenv("LUMAGO_RENDERER") == "nop" {
+		game.SetRenderer(renderer.NewNopRenderer())
+	} else {
+		window, err := desktop.NewWindow(game.Config.Width, game.Config.Height, game.Config.Title)
+		if err != nil {
+			panic(err)
+		}
+		vulkanRenderer, err := vulkanrenderer.NewRenderer(vulkanrenderer.Config{
+			Window:          window,
+			ShaderDirectory: "shaders/bin",
+			Validation:      os.Getenv("LUMAGO_VULKAN_VALIDATION") == "1",
+		})
+		if err != nil {
+			window.Close()
+			panic(err)
+		}
+		game.SetWindow(window)
+		game.SetRenderer(vulkanRenderer)
+	}
+
+	if err := game.Run(); err != nil {
+		panic(err)
+	}
+	fmt.Println("LumaGo lighting room finished.")
 }
 
 func material(game *app.Game, name string, roughness, emissive float32) graphics.Material2D {
@@ -70,5 +107,27 @@ func light(x, y, radius float32, color lmath.Color, intensity float32) graphics.
 		Color:     color,
 		Intensity: intensity,
 		Falloff:   1.4,
+	}
+}
+
+func updateLights(world *scene.Scene, t float32) {
+	world.SetLights([]graphics.Light2D{
+		light(380+90*float32(math.Sin(float64(t*1.1))), 300+70*float32(math.Cos(float64(t*0.8))), 340, lmath.Color{R: 1.00, G: 0.78, B: 0.45, A: 1}, 1.9),
+		light(710+110*float32(math.Cos(float64(t*0.9))), 315+60*float32(math.Sin(float64(t*1.4))), 280, lmath.Color{R: 0.45, G: 0.68, B: 1.00, A: 1}, 1.4),
+		light(470+75*float32(math.Sin(float64(t*1.7))), 500+45*float32(math.Sin(float64(t*0.7))), 220, lmath.Color{R: 0.85, G: 0.42, B: 1.00, A: 1}, 1.1),
+		light(830+100*float32(math.Cos(float64(t*0.6))), 470+80*float32(math.Sin(float64(t*1.2))), 380, lmath.Color{R: 0.55, G: 1.00, B: 0.70, A: 1}, 1.2),
+	})
+}
+
+func debugViewFromEnv() graphics.DebugView2D {
+	switch os.Getenv("LUMAGO_DEBUG_VIEW") {
+	case "color":
+		return graphics.DebugViewSceneColor
+	case "normal":
+		return graphics.DebugViewSceneNormal
+	case "light":
+		return graphics.DebugViewLightBuffer
+	default:
+		return graphics.DebugViewFinalComposite
 	}
 }

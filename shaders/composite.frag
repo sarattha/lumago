@@ -6,7 +6,8 @@ layout(location = 0) out vec4 outColor;
 layout(binding = 0) uniform sampler2D sceneColor;
 layout(binding = 1) uniform sampler2D sceneNormal;
 layout(binding = 2) uniform sampler2D lightBuffer;
-layout(binding = 3) uniform CompositeUniforms {
+layout(binding = 3) uniform sampler2D sceneEmissive;
+layout(binding = 4) uniform CompositeUniforms {
     uint debugView;
 } composite;
 
@@ -14,6 +15,7 @@ void main() {
     vec4 color = texture(sceneColor, fragUV);
     vec4 normal = texture(sceneNormal, fragUV);
     vec4 light = texture(lightBuffer, fragUV);
+    vec4 emissive = texture(sceneEmissive, fragUV);
 
     if (composite.debugView == 1) {
         outColor = color;
@@ -22,6 +24,6 @@ void main() {
     } else if (composite.debugView == 3) {
         outColor = light;
     } else {
-        outColor = vec4(color.rgb * light.rgb, color.a);
+        outColor = vec4(color.rgb * light.rgb + emissive.rgb, color.a);
     }
 }
