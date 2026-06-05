@@ -145,7 +145,7 @@ func prepareLightsForFrame(dst []graphics.Light2D, lights []graphics.Light2D, ca
 	return dst
 }
 
-func litSpriteBatchForLighting(dst graphics.SpriteBatch, vertices []graphics.SpriteVertex, indices []uint16, batch graphics.SpriteBatch, lights []graphics.Light2D, config graphics.LightingConfig2D, extent vk.Extent2D) (graphics.SpriteBatch, []graphics.SpriteVertex, []uint16) {
+func litSpriteBatchForLighting(dst graphics.SpriteBatch, vertices []graphics.SpriteVertex, indices []uint16, batch graphics.SpriteBatch, lights []graphics.Light2D, shadows []lightShadowMap, config graphics.LightingConfig2D, extent vk.Extent2D) (graphics.SpriteBatch, []graphics.SpriteVertex, []uint16) {
 	if len(batch.Vertices) == 0 {
 		dst.Reset()
 		return dst, vertices[:0], indices[:0]
@@ -177,6 +177,7 @@ func litSpriteBatchForLighting(dst graphics.SpriteBatch, vertices []graphics.Spr
 			batch.Vertices[sourceStart:sourceStart+4],
 			command.Sprite.Material,
 			lights,
+			shadows,
 			config,
 			extent,
 		)
@@ -190,14 +191,14 @@ func litSpriteBatchForLighting(dst graphics.SpriteBatch, vertices []graphics.Spr
 	return dst, vertices, indices
 }
 
-func writeLitSprite(dst []graphics.SpriteVertex, indices []uint16, base uint16, corners []graphics.SpriteVertex, material graphics.Material2D, lights []graphics.Light2D, config graphics.LightingConfig2D, extent vk.Extent2D) {
+func writeLitSprite(dst []graphics.SpriteVertex, indices []uint16, base uint16, corners []graphics.SpriteVertex, material graphics.Material2D, lights []graphics.Light2D, shadows []lightShadowMap, config graphics.LightingConfig2D, extent vk.Extent2D) {
 	vertexIndex := 0
 	for y := 0; y <= litSpriteGrid; y++ {
 		ty := float32(y) / litSpriteGrid
 		for x := 0; x <= litSpriteGrid; x++ {
 			tx := float32(x) / litSpriteGrid
 			vertex := interpolateSpriteVertex(corners, tx, ty)
-			vertex.Color = litVertexColor(vertex, material, lights, config, extent)
+			vertex.Color = litVertexColor(vertex, material, lights, shadows, config, extent)
 			dst[vertexIndex] = vertex
 			vertexIndex++
 		}
@@ -236,10 +237,11 @@ func interpolateVertex(a, b graphics.SpriteVertex, t float32) graphics.SpriteVer
 	}
 }
 
-func litVertexColor(vertex graphics.SpriteVertex, material graphics.Material2D, lights []graphics.Light2D, config graphics.LightingConfig2D, extent vk.Extent2D) lmath.Color {
+func litVertexColor(vertex graphics.SpriteVertex, material graphics.Material2D, lights []graphics.Light2D, shadows []lightShadowMap, config graphics.LightingConfig2D, extent vk.Extent2D) lmath.Color {
 	base := vertex.Color
 	normal := materialNormal(material, vertex.UV)
-	light := accumulatedLight(clipToFramebuffer(vertex.Position, extent), normal, lights, config.Ambient)
+	pixel := clipToFramebuffer(vertex.Position, extent)
+	light := accumulatedLight(pixel, normal, lights, shadows, config.Ambient)
 	emissive := max0(material.Emissive)
 
 	switch config.DebugView {
@@ -249,6 +251,9 @@ func litVertexColor(vertex graphics.SpriteVertex, material graphics.Material2D, 
 		return lmath.Color{R: normal.X*0.5 + 0.5, G: normal.Y*0.5 + 0.5, B: normalZ(normal)*0.5 + 0.5, A: base.A}
 	case graphics.DebugViewLightBuffer:
 		return lmath.Color{R: light.R, G: light.G, B: light.B, A: base.A}
+	case graphics.DebugViewShadowFactor:
+		shadow := combinedShadowFactor(pixel, lights, shadows)
+		return lmath.Color{R: shadow, G: shadow, B: shadow, A: base.A}
 	default:
 		return lmath.Color{
 			R: base.R*light.R + base.R*emissive,
@@ -283,9 +288,9 @@ func normalZ(normal lmath.Vec2) float32 {
 	return float32(math.Sqrt(float64(1 - xy)))
 }
 
-func accumulatedLight(pixel lmath.Vec2, normal lmath.Vec2, lights []graphics.Light2D, ambient lmath.Color) lmath.Color {
+func accumulatedLight(pixel lmath.Vec2, normal lmath.Vec2, lights []graphics.Light2D, shadows []lightShadowMap, ambient lmath.Color) lmath.Color {
 	result := ambient
-	for _, light := range lights {
+	for i, light := range lights {
 		radius := max0(light.Radius)
 		if radius == 0 {
 			continue
@@ -309,7 +314,7 @@ func accumulatedLight(pixel lmath.Vec2, normal lmath.Vec2, lights []graphics.Lig
 		if ndotl < 0 {
 			ndotl = 0
 		}
-		intensity := max0(light.Intensity) * attenuation * ndotl
+		intensity := max0(light.Intensity) * attenuation * ndotl * shadowFactorForLight(pixel, i, lights, shadows)
 		result.R += light.Color.R * intensity
 		result.G += light.Color.G * intensity
 		result.B += light.Color.B * intensity

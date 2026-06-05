@@ -22,6 +22,7 @@ shaders:
 	glslc shaders/sprite_color.frag -o shaders/bin/sprite_color.frag.spv
 	glslc shaders/sprite_normal.frag -o shaders/bin/sprite_normal.frag.spv
 	glslc shaders/light_accum.frag -o shaders/bin/light_accum.frag.spv
+	glslc shaders/shadow_map.frag -o shaders/bin/shadow_map.frag.spv
 	glslc shaders/composite.frag -o shaders/bin/composite.frag.spv
 
 run: shaders

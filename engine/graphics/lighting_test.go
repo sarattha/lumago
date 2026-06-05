@@ -18,9 +18,9 @@ func TestLightingConfigWithDefaults(t *testing.T) {
 
 	custom := LightingConfig2D{
 		Ambient:   lmath.Color{R: 0.2, G: 0.3, B: 0.4, A: 1},
-		DebugView: DebugViewLightBuffer,
+		DebugView: DebugViewShadowFactor,
 	}.WithDefaults()
-	if custom.DebugView != DebugViewLightBuffer || custom.Ambient.R != 0.2 {
+	if custom.DebugView != DebugViewShadowFactor || custom.Ambient.R != 0.2 {
 		t.Fatalf("custom config was not preserved: %+v", custom)
 	}
 }
@@ -31,6 +31,7 @@ func TestDebugViewString(t *testing.T) {
 		DebugViewSceneColor:     "scene_color",
 		DebugViewSceneNormal:    "scene_normal",
 		DebugViewLightBuffer:    "light_buffer",
+		DebugViewShadowFactor:   "shadow_factor",
 		DebugView2D(42):         "final",
 	}
 	for view, want := range tests {

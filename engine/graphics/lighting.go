@@ -9,6 +9,7 @@ const (
 	DebugViewSceneColor
 	DebugViewSceneNormal
 	DebugViewLightBuffer
+	DebugViewShadowFactor
 )
 
 type LightingConfig2D struct {
@@ -27,7 +28,7 @@ func (c LightingConfig2D) WithDefaults() LightingConfig2D {
 	if c.Ambient.A == 0 && c.Ambient.R == 0 && c.Ambient.G == 0 && c.Ambient.B == 0 {
 		c.Ambient = DefaultLightingConfig2D().Ambient
 	}
-	if c.DebugView > DebugViewLightBuffer {
+	if c.DebugView > DebugViewShadowFactor {
 		c.DebugView = DebugViewFinalComposite
 	}
 	return c
@@ -43,6 +44,8 @@ func (v DebugView2D) String() string {
 		return "scene_normal"
 	case DebugViewLightBuffer:
 		return "light_buffer"
+	case DebugViewShadowFactor:
+		return "shadow_factor"
 	default:
 		return "final"
 	}

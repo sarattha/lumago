@@ -35,17 +35,17 @@
   <section>
     <h2>Execution Checklist</h2>
     <ul>
-      <li><label><input type="checkbox">Finalize the occluder data model for polygon points, line segments, layer, and optional caster metadata.</label></li>
-      <li><label><input type="checkbox">Add segment extraction from rectangle and polygon occluders.</label></li>
-      <li><label><input type="checkbox">Cull occluder segments by light radius before shadow generation.</label></li>
-      <li><label><input type="checkbox">Extend the Vulkan shim only for required shadow texture, pass, descriptor, and shader input calls.</label></li>
-      <li><label><input type="checkbox">Create per-light shadow texture resources for shadow-casting lights.</label></li>
-      <li><label><input type="checkbox">Implement shadow map generation from light-relative occluder segments.</label></li>
-      <li><label><input type="checkbox">Add shadow lookup to the light accumulation shader.</label></li>
-      <li><label><input type="checkbox">Support hard shadows first, with no blur required for acceptance.</label></li>
-      <li><label><input type="checkbox">Add a debug view for per-light shadow textures or shadow factor.</label></li>
-      <li><label><input type="checkbox">Update the lighting_room example with 20 rectangle or segment occluders.</label></li>
-      <li><label><input type="checkbox">Verify two shadow-casting lights and additional non-shadowing lights in the same scene.</label></li>
+      <li><label><input type="checkbox" checked>Finalize the occluder data model for polygon points, line segments, layer, and optional caster metadata.</label></li>
+      <li><label><input type="checkbox" checked>Add segment extraction from rectangle and polygon occluders.</label></li>
+      <li><label><input type="checkbox" checked>Cull occluder segments by light radius before shadow generation.</label></li>
+      <li><label><input type="checkbox" checked>Extend the Vulkan shim only for required shadow texture, pass, descriptor, and shader input calls.</label></li>
+      <li><label><input type="checkbox" checked>Create per-light shadow texture resources for shadow-casting lights.</label></li>
+      <li><label><input type="checkbox" checked>Implement shadow map generation from light-relative occluder segments.</label></li>
+      <li><label><input type="checkbox" checked>Add shadow lookup to the light accumulation shader.</label></li>
+      <li><label><input type="checkbox" checked>Support hard shadows first, with no blur required for acceptance.</label></li>
+      <li><label><input type="checkbox" checked>Add a debug view for per-light shadow textures or shadow factor.</label></li>
+      <li><label><input type="checkbox" checked>Update the lighting_room example with 20 rectangle or segment occluders.</label></li>
+      <li><label><input type="checkbox" checked>Verify two shadow-casting lights and additional non-shadowing lights in the same scene.</label></li>
     </ul>
   </section>
 
@@ -53,20 +53,20 @@
     <div>
       <h2>Acceptance Checklist</h2>
       <ul>
-        <li><label><input type="checkbox">Point lights cast visible shadows.</label></li>
-        <li><label><input type="checkbox">Rectangular wall occluders block light.</label></li>
-        <li><label><input type="checkbox">Characters or props can optionally cast shadows.</label></li>
-        <li><label><input type="checkbox">3-8 dynamic shadow-casting lights are possible in a simple scene.</label></li>
-        <li><label><input type="checkbox">Debug shadow visualization is available.</label></li>
+        <li><label><input type="checkbox" checked>Point lights cast visible shadows.</label></li>
+        <li><label><input type="checkbox" checked>Rectangular wall occluders block light.</label></li>
+        <li><label><input type="checkbox" checked>Characters or props can optionally cast shadows.</label></li>
+        <li><label><input type="checkbox" checked>3-8 dynamic shadow-casting lights are possible in a simple scene.</label></li>
+        <li><label><input type="checkbox" checked>Debug shadow visualization is available.</label></li>
       </ul>
     </div>
     <div>
       <h2>Verification</h2>
       <ul>
-        <li><label><input type="checkbox">Run gofmt on edited Go files.</label></li>
-        <li><label><input type="checkbox">Run go test ./...</label></li>
-        <li><label><input type="checkbox">Run go vet ./...</label></li>
-        <li><label><input type="checkbox">Move shadow-casting lights and verify occluder shadows update.</label></li>
+        <li><label><input type="checkbox" checked>Run gofmt on edited Go files.</label></li>
+        <li><label><input type="checkbox" checked>Run go test ./...</label></li>
+        <li><label><input type="checkbox" checked>Run go vet ./...</label></li>
+        <li><label><input type="checkbox" checked>Move shadow-casting lights and verify occluder shadows update.</label></li>
       </ul>
     </div>
   </section>
