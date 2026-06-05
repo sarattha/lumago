@@ -12,6 +12,6 @@ func createNativeDeviceDarwin(physicalDevice vk.PhysicalDevice, graphicsFamily, 
 	return nil, nil
 }
 
-func createNativeQuadPipelineDarwin(device vk.Device, renderPass vk.RenderPass, extent vk.Extent2D, vert, frag vk.ShaderModule) (vk.PipelineLayout, vk.Pipeline, error) {
+func createNativeQuadPipelineDarwin(device vk.Device, renderPass vk.RenderPass, extent vk.Extent2D, descriptorSetLayout vk.DescriptorSetLayout, vert, frag vk.ShaderModule) (vk.PipelineLayout, vk.Pipeline, error) {
 	return vk.NullPipelineLayout, vk.NullPipeline, nil
 }

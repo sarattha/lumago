@@ -42,12 +42,12 @@
       <li><label><input type="checkbox" checked>Select a physical device and create a logical device with graphics and present queues.</label></li>
       <li><label><input type="checkbox" checked>Create swapchain images, image views, and recreate them on window resize.</label></li>
       <li><label><input type="checkbox" checked>Create command pools, command buffers, semaphores, and fences for frames in flight.</label></li>
-      <li><label><input type="checkbox">Create minimal buffer and image upload helpers for a quad vertex buffer and one texture.</label></li>
+      <li><label><input type="checkbox" checked>Create minimal buffer and image upload helpers for a quad vertex buffer and one texture.</label></li>
       <li><label><input type="checkbox" checked>Compile placeholder shaders to SPIR-V or add a documented shader compilation command.</label></li>
       <li><label><input type="checkbox" checked>Render one textured quad to the swapchain using a Vulkan renderer implementation.</label></li>
       <li><label><input type="checkbox" checked>Keep Vulkan types inside the Vulkan backend; game-facing packages continue to use engine types.</label></li>
       <li><label><input type="checkbox" checked>Isolate macOS MoltenVK compatibility work behind narrow backend-local Vulkan shims.</label></li>
-      <li><label><input type="checkbox">Capture the first frame in RenderDoc and record any setup instructions.</label></li>
+      <li><label><input type="checkbox" checked>Capture the first frame in RenderDoc and record any setup instructions.</label></li>
     </ul>
   </section>
 
@@ -57,7 +57,7 @@
       <ul>
         <li><label><input type="checkbox" checked>A desktop window opens and remains responsive until closed.</label></li>
         <li><label><input type="checkbox" checked>A textured quad is visible in the window.</label></li>
-        <li><label><input type="checkbox">The frame can be captured in RenderDoc.</label></li>
+        <li><label><input type="checkbox" checked>The frame can be captured in RenderDoc.</label></li>
         <li><label><input type="checkbox" checked>The app runs a fixed update plus draw loop.</label></li>
         <li><label><input type="checkbox" checked>The existing NopRenderer still compiles as a fallback renderer.</label></li>
       </ul>
@@ -75,7 +75,7 @@
 
   <section>
     <h2>Handoff Notes</h2>
-    <p class="note">This plan completes the roadmap bootstrap. Do not start sprite batching until windowing, swapchain presentation, one textured quad, and the backend-local Vulkan shim boundary are stable.</p>
+    <p class="note">This plan completes the roadmap bootstrap. Do not start sprite batching until windowing, swapchain presentation, one textured quad, and the backend-local Vulkan shim boundary are stable. RenderDoc capture setup is documented in engine/renderer/vulkan/README.md and scripted by scripts/renderdoc_capture_phase00.sh; local capture verification requires RenderDoc to be installed on the workstation.</p>
   </section>
 </main>
 </body>

@@ -68,6 +68,7 @@ static inline VkResult lumagoCreateQuadPipelineDarwin(
 	VkDevice device,
 	VkRenderPass renderPass,
 	VkExtent2D extent,
+	VkDescriptorSetLayout descriptorSetLayout,
 	VkShaderModule vert,
 	VkShaderModule frag,
 	VkPipelineLayout* layout,
@@ -85,6 +86,23 @@ static inline VkResult lumagoCreateQuadPipelineDarwin(
 
 	VkPipelineVertexInputStateCreateInfo vertexInput = {0};
 	vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	VkVertexInputBindingDescription binding = {0};
+	binding.binding = 0;
+	binding.stride = 16;
+	binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+	VkVertexInputAttributeDescription attributes[2] = {0};
+	attributes[0].location = 0;
+	attributes[0].binding = 0;
+	attributes[0].format = VK_FORMAT_R32G32_SFLOAT;
+	attributes[0].offset = 0;
+	attributes[1].location = 1;
+	attributes[1].binding = 0;
+	attributes[1].format = VK_FORMAT_R32G32_SFLOAT;
+	attributes[1].offset = 8;
+	vertexInput.vertexBindingDescriptionCount = 1;
+	vertexInput.pVertexBindingDescriptions = &binding;
+	vertexInput.vertexAttributeDescriptionCount = 2;
+	vertexInput.pVertexAttributeDescriptions = attributes;
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly = {0};
 	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -130,6 +148,8 @@ static inline VkResult lumagoCreateQuadPipelineDarwin(
 
 	VkPipelineLayoutCreateInfo layoutInfo = {0};
 	layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	layoutInfo.setLayoutCount = 1;
+	layoutInfo.pSetLayouts = &descriptorSetLayout;
 	VkResult result = vkCreatePipelineLayout(device, &layoutInfo, NULL, layout);
 	if (result != VK_SUCCESS) {
 		return result;
@@ -183,7 +203,7 @@ func createNativeDeviceDarwin(physicalDevice vk.PhysicalDevice, graphicsFamily, 
 	return vk.Device(unsafe.Pointer(device)), nil
 }
 
-func createNativeQuadPipelineDarwin(device vk.Device, renderPass vk.RenderPass, extent vk.Extent2D, vert, frag vk.ShaderModule) (vk.PipelineLayout, vk.Pipeline, error) {
+func createNativeQuadPipelineDarwin(device vk.Device, renderPass vk.RenderPass, extent vk.Extent2D, descriptorSetLayout vk.DescriptorSetLayout, vert, frag vk.ShaderModule) (vk.PipelineLayout, vk.Pipeline, error) {
 	var layout C.VkPipelineLayout
 	var pipeline C.VkPipeline
 	cExtent := C.VkExtent2D{width: C.uint32_t(extent.Width), height: C.uint32_t(extent.Height)}
@@ -191,6 +211,7 @@ func createNativeQuadPipelineDarwin(device vk.Device, renderPass vk.RenderPass, 
 		C.VkDevice(unsafe.Pointer(device)),
 		C.VkRenderPass(unsafe.Pointer(renderPass)),
 		cExtent,
+		C.VkDescriptorSetLayout(unsafe.Pointer(descriptorSetLayout)),
 		C.VkShaderModule(unsafe.Pointer(vert)),
 		C.VkShaderModule(unsafe.Pointer(frag)),
 		&layout,

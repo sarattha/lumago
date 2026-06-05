@@ -5,8 +5,9 @@ This package will contain the Vulkan renderer implementation.
 Current status: phase-00 foundation.
 
 The backend opens a GLFW desktop surface through `engine/platform/desktop`, creates
-a Vulkan instance/device/swapchain, and renders one checker-textured quad using
-SPIR-V shaders from `shaders/bin`.
+a Vulkan instance/device/swapchain, uploads one quad vertex buffer, one index
+buffer, and one small texture, then renders the textured quad using SPIR-V
+shaders from `shaders/bin`.
 
 On macOS, the current `vulkan-go` binding needs small Darwin shims for instance,
 device, surface, and graphics pipeline creation because its generated create-info
@@ -50,3 +51,16 @@ make run
 
 Set `LUMAGO_RENDERER=nop` or use `make run-nop` for the fallback renderer. Set
 `LUMAGO_VULKAN_DEBUG=1` to print requested Vulkan instance/device extensions.
+
+## RenderDoc Capture
+
+Use the phase-00 capture helper after installing RenderDoc:
+
+```bash
+scripts/renderdoc_capture_phase00.sh
+```
+
+The script recompiles shaders, runs `make run` under `renderdoccmd capture`, and
+writes captures under `captures/phase00-first-frame*.rdc`. On macOS it accepts
+either `renderdoccmd` on `PATH` or
+`/Applications/RenderDoc.app/Contents/MacOS/renderdoccmd`.

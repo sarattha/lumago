@@ -47,6 +47,18 @@ type Renderer struct {
 	commandPool    vk.CommandPool
 	commandBuffers []vk.CommandBuffer
 
+	vertexBuffer        vk.Buffer
+	vertexMemory        vk.DeviceMemory
+	indexBuffer         vk.Buffer
+	indexMemory         vk.DeviceMemory
+	textureImage        vk.Image
+	textureMemory       vk.DeviceMemory
+	textureImageView    vk.ImageView
+	textureSampler      vk.Sampler
+	descriptorSetLayout vk.DescriptorSetLayout
+	descriptorPool      vk.DescriptorPool
+	descriptorSet       vk.DescriptorSet
+
 	imageAvailable []vk.Semaphore
 	renderFinished []vk.Semaphore
 	inFlight       []vk.Fence
@@ -183,6 +195,7 @@ func (r *Renderer) Close() error {
 		vk.DeviceWaitIdle(r.device)
 	}
 	r.cleanupSwapchain()
+	r.cleanupQuadResources()
 	for i := 0; i < len(r.imageAvailable); i++ {
 		if r.imageAvailable[i] != vk.NullSemaphore {
 			vk.DestroySemaphore(r.device, r.imageAvailable[i], nil)
@@ -230,13 +243,16 @@ func (r *Renderer) init() error {
 	if err := r.createRenderPass(); err != nil {
 		return err
 	}
+	if err := r.createCommandPool(); err != nil {
+		return err
+	}
+	if err := r.createQuadResources(); err != nil {
+		return err
+	}
 	if err := r.createPipeline(); err != nil {
 		return err
 	}
 	if err := r.createFramebuffers(); err != nil {
-		return err
-	}
-	if err := r.createCommandPool(); err != nil {
 		return err
 	}
 	if err := r.createCommandBuffers(); err != nil {
@@ -522,7 +538,7 @@ func (r *Renderer) createPipeline() error {
 	defer vk.DestroyShaderModule(r.device, frag, nil)
 
 	if runtime.GOOS == "darwin" {
-		layout, pipeline, err := createNativeQuadPipelineDarwin(r.device, r.renderPass, r.swapchainExtent, vert, frag)
+		layout, pipeline, err := createNativeQuadPipelineDarwin(r.device, r.renderPass, r.swapchainExtent, r.descriptorSetLayout, vert, frag)
 		if err != nil {
 			return err
 		}
@@ -535,7 +551,22 @@ func (r *Renderer) createPipeline() error {
 		{SType: vk.StructureTypePipelineShaderStageCreateInfo, Stage: vk.ShaderStageVertexBit, Module: vert, PName: "main"},
 		{SType: vk.StructureTypePipelineShaderStageCreateInfo, Stage: vk.ShaderStageFragmentBit, Module: frag, PName: "main"},
 	}
-	vertexInput := vk.PipelineVertexInputStateCreateInfo{SType: vk.StructureTypePipelineVertexInputStateCreateInfo}
+	binding := vk.VertexInputBindingDescription{
+		Binding:   0,
+		Stride:    quadVertexStride,
+		InputRate: vk.VertexInputRateVertex,
+	}
+	attributes := []vk.VertexInputAttributeDescription{
+		{Location: 0, Binding: 0, Format: vk.FormatR32g32Sfloat, Offset: 0},
+		{Location: 1, Binding: 0, Format: vk.FormatR32g32Sfloat, Offset: 8},
+	}
+	vertexInput := vk.PipelineVertexInputStateCreateInfo{
+		SType:                           vk.StructureTypePipelineVertexInputStateCreateInfo,
+		VertexBindingDescriptionCount:   1,
+		PVertexBindingDescriptions:      []vk.VertexInputBindingDescription{binding},
+		VertexAttributeDescriptionCount: uint32(len(attributes)),
+		PVertexAttributeDescriptions:    attributes,
+	}
 	inputAssembly := vk.PipelineInputAssemblyStateCreateInfo{
 		SType:    vk.StructureTypePipelineInputAssemblyStateCreateInfo,
 		Topology: vk.PrimitiveTopologyTriangleList,
@@ -575,7 +606,11 @@ func (r *Renderer) createPipeline() error {
 		AttachmentCount: 1,
 		PAttachments:    []vk.PipelineColorBlendAttachmentState{colorBlendAttachment},
 	}
-	layoutInfo := vk.PipelineLayoutCreateInfo{SType: vk.StructureTypePipelineLayoutCreateInfo}
+	layoutInfo := vk.PipelineLayoutCreateInfo{
+		SType:          vk.StructureTypePipelineLayoutCreateInfo,
+		SetLayoutCount: 1,
+		PSetLayouts:    []vk.DescriptorSetLayout{r.descriptorSetLayout},
+	}
 	if err := check(vk.CreatePipelineLayout(r.device, &layoutInfo, nil, &r.pipelineLayout), "create pipeline layout"); err != nil {
 		return err
 	}
@@ -677,7 +712,10 @@ func (r *Renderer) recordCommandBuffer(commandBuffer vk.CommandBuffer, imageInde
 	}
 	vk.CmdBeginRenderPass(commandBuffer, &renderPassInfo, vk.SubpassContentsInline)
 	vk.CmdBindPipeline(commandBuffer, vk.PipelineBindPointGraphics, r.pipeline)
-	vk.CmdDraw(commandBuffer, 6, 1, 0, 0)
+	vk.CmdBindDescriptorSets(commandBuffer, vk.PipelineBindPointGraphics, r.pipelineLayout, 0, 1, []vk.DescriptorSet{r.descriptorSet}, 0, nil)
+	vk.CmdBindVertexBuffers(commandBuffer, 0, 1, []vk.Buffer{r.vertexBuffer}, []vk.DeviceSize{0})
+	vk.CmdBindIndexBuffer(commandBuffer, r.indexBuffer, 0, vk.IndexTypeUint16)
+	vk.CmdDrawIndexed(commandBuffer, quadIndexCount, 1, 0, 0, 0)
 	vk.CmdEndRenderPass(commandBuffer)
 	return check(vk.EndCommandBuffer(commandBuffer), "end command buffer")
 }
