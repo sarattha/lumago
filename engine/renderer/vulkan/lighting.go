@@ -11,6 +11,7 @@ import (
 
 const (
 	packedLightStride = 48
+	litSpriteGrid     = 8
 )
 
 type lightingTargetKind uint8
@@ -144,48 +145,118 @@ func prepareLightsForFrame(dst []graphics.Light2D, lights []graphics.Light2D, ca
 	return dst
 }
 
-func shadeSpriteVerticesForLighting(dst []graphics.SpriteVertex, batch graphics.SpriteBatch, lights []graphics.Light2D, config graphics.LightingConfig2D, extent vk.Extent2D) []graphics.SpriteVertex {
+func litSpriteBatchForLighting(dst graphics.SpriteBatch, vertices []graphics.SpriteVertex, indices []uint16, batch graphics.SpriteBatch, lights []graphics.Light2D, config graphics.LightingConfig2D, extent vk.Extent2D) (graphics.SpriteBatch, []graphics.SpriteVertex, []uint16) {
 	if len(batch.Vertices) == 0 {
-		return dst[:0]
+		dst.Reset()
+		return dst, vertices[:0], indices[:0]
 	}
-	if cap(dst) < len(batch.Vertices) {
-		dst = make([]graphics.SpriteVertex, len(batch.Vertices))
-	} else {
-		dst = dst[:len(batch.Vertices)]
-	}
-	copy(dst, batch.Vertices)
 
+	maxSprites := int(^uint16(0)) / litSpriteVertexCount()
+	commands := batch.Commands
+	if len(commands) > maxSprites {
+		commands = commands[:maxSprites]
+	}
+	vertexCount := len(commands) * litSpriteVertexCount()
+	indexCount := len(commands) * litSpriteIndexCount()
+	vertices = ensureLitVertices(vertices, vertexCount)
+	indices = ensureLitIndices(indices, indexCount)
+
+	dst.Commands = append(dst.Commands[:0], commands...)
+	dst.Vertices = vertices
+	dst.Indices = indices
 	config = config.WithDefaults()
-	for spriteIndex, command := range batch.Commands {
-		start := spriteIndex * 4
-		if start+4 > len(dst) {
+	for spriteIndex, command := range commands {
+		sourceStart := spriteIndex * 4
+		if sourceStart+4 > len(batch.Vertices) {
 			break
 		}
-		for i := 0; i < 4; i++ {
-			vertex := &dst[start+i]
-			base := vertex.Color
-			normal := materialNormal(command.Sprite.Material, vertex.UV)
-			light := accumulatedLight(clipToFramebuffer(vertex.Position, extent), normal, lights, config.Ambient)
-			emissive := max0(command.Sprite.Material.Emissive)
+		writeLitSprite(
+			vertices[spriteIndex*litSpriteVertexCount():(spriteIndex+1)*litSpriteVertexCount()],
+			indices[spriteIndex*litSpriteIndexCount():(spriteIndex+1)*litSpriteIndexCount()],
+			uint16(spriteIndex*litSpriteVertexCount()),
+			batch.Vertices[sourceStart:sourceStart+4],
+			command.Sprite.Material,
+			lights,
+			config,
+			extent,
+		)
+	}
+	dst.Stats = graphics.SpriteBatchStats{
+		SpriteCount: len(commands),
+		DrawCalls:   drawCallsForIndexCount(len(indices)),
+		VertexCount: len(vertices),
+		IndexCount:  len(indices),
+	}
+	return dst, vertices, indices
+}
 
-			switch config.DebugView {
-			case graphics.DebugViewSceneColor:
-				vertex.Color = base
-			case graphics.DebugViewSceneNormal:
-				vertex.Color = lmath.Color{R: normal.X*0.5 + 0.5, G: normal.Y*0.5 + 0.5, B: normalZ(normal)*0.5 + 0.5, A: base.A}
-			case graphics.DebugViewLightBuffer:
-				vertex.Color = lmath.Color{R: light.R, G: light.G, B: light.B, A: base.A}
-			default:
-				vertex.Color = lmath.Color{
-					R: base.R*light.R + base.R*emissive,
-					G: base.G*light.G + base.G*emissive,
-					B: base.B*light.B + base.B*emissive,
-					A: base.A,
-				}
-			}
+func writeLitSprite(dst []graphics.SpriteVertex, indices []uint16, base uint16, corners []graphics.SpriteVertex, material graphics.Material2D, lights []graphics.Light2D, config graphics.LightingConfig2D, extent vk.Extent2D) {
+	vertexIndex := 0
+	for y := 0; y <= litSpriteGrid; y++ {
+		ty := float32(y) / litSpriteGrid
+		for x := 0; x <= litSpriteGrid; x++ {
+			tx := float32(x) / litSpriteGrid
+			vertex := interpolateSpriteVertex(corners, tx, ty)
+			vertex.Color = litVertexColor(vertex, material, lights, config, extent)
+			dst[vertexIndex] = vertex
+			vertexIndex++
 		}
 	}
-	return dst
+
+	index := 0
+	stride := litSpriteGrid + 1
+	for y := 0; y < litSpriteGrid; y++ {
+		for x := 0; x < litSpriteGrid; x++ {
+			topLeft := base + uint16(y*stride+x)
+			topRight := topLeft + 1
+			bottomLeft := topLeft + uint16(stride)
+			bottomRight := bottomLeft + 1
+			indices[index+0] = topLeft
+			indices[index+1] = topRight
+			indices[index+2] = bottomRight
+			indices[index+3] = bottomRight
+			indices[index+4] = bottomLeft
+			indices[index+5] = topLeft
+			index += 6
+		}
+	}
+}
+
+func interpolateSpriteVertex(corners []graphics.SpriteVertex, tx, ty float32) graphics.SpriteVertex {
+	top := interpolateVertex(corners[3], corners[2], tx)
+	bottom := interpolateVertex(corners[0], corners[1], tx)
+	return interpolateVertex(bottom, top, ty)
+}
+
+func interpolateVertex(a, b graphics.SpriteVertex, t float32) graphics.SpriteVertex {
+	return graphics.SpriteVertex{
+		Position: lerpVec2(a.Position, b.Position, t),
+		UV:       lerpVec2(a.UV, b.UV, t),
+		Color:    lerpColor(a.Color, b.Color, t),
+	}
+}
+
+func litVertexColor(vertex graphics.SpriteVertex, material graphics.Material2D, lights []graphics.Light2D, config graphics.LightingConfig2D, extent vk.Extent2D) lmath.Color {
+	base := vertex.Color
+	normal := materialNormal(material, vertex.UV)
+	light := accumulatedLight(clipToFramebuffer(vertex.Position, extent), normal, lights, config.Ambient)
+	emissive := max0(material.Emissive)
+
+	switch config.DebugView {
+	case graphics.DebugViewSceneColor:
+		return base
+	case graphics.DebugViewSceneNormal:
+		return lmath.Color{R: normal.X*0.5 + 0.5, G: normal.Y*0.5 + 0.5, B: normalZ(normal)*0.5 + 0.5, A: base.A}
+	case graphics.DebugViewLightBuffer:
+		return lmath.Color{R: light.R, G: light.G, B: light.B, A: base.A}
+	default:
+		return lmath.Color{
+			R: base.R*light.R + base.R*emissive,
+			G: base.G*light.G + base.G*emissive,
+			B: base.B*light.B + base.B*emissive,
+			A: base.A,
+		}
+	}
 }
 
 func clipToFramebuffer(position lmath.Vec2, extent vk.Extent2D) lmath.Vec2 {
@@ -196,12 +267,12 @@ func clipToFramebuffer(position lmath.Vec2, extent vk.Extent2D) lmath.Vec2 {
 }
 
 func materialNormal(material graphics.Material2D, uv lmath.Vec2) lmath.Vec2 {
-	if material.Normal == graphics.InvalidTexture {
+	data, ok := graphics.RegisteredTextureData(material.Normal)
+	if !ok {
 		return lmath.Vec2{}
 	}
-	x := float32(math.Sin(float64((uv.X + uv.Y) * 18.8495559215)))
-	y := float32(math.Cos(float64((uv.X - uv.Y) * 18.8495559215)))
-	return lmath.Vec2{X: x * 0.35, Y: y * 0.35}
+	color := sampleTextureData(data, uv)
+	return lmath.Vec2{X: color.R*2 - 1, Y: color.G*2 - 1}
 }
 
 func normalZ(normal lmath.Vec2) float32 {
@@ -317,4 +388,67 @@ func shadowFlag(enabled bool) float32 {
 		return 1
 	}
 	return 0
+}
+
+func sampleTextureData(data graphics.TextureData, uv lmath.Vec2) lmath.Color {
+	if data.Width <= 0 || data.Height <= 0 || len(data.Pixels) == 0 {
+		return lmath.Color{R: 0.5, G: 0.5, B: 1, A: 1}
+	}
+	u := uv.X - float32(math.Floor(float64(uv.X)))
+	v := uv.Y - float32(math.Floor(float64(uv.Y)))
+	x := int(u * float32(data.Width))
+	y := int(v * float32(data.Height))
+	if x >= data.Width {
+		x = data.Width - 1
+	}
+	if y >= data.Height {
+		y = data.Height - 1
+	}
+	index := y*data.Width + x
+	if index < 0 || index >= len(data.Pixels) {
+		return lmath.Color{R: 0.5, G: 0.5, B: 1, A: 1}
+	}
+	return data.Pixels[index]
+}
+
+func ensureLitVertices(vertices []graphics.SpriteVertex, count int) []graphics.SpriteVertex {
+	if cap(vertices) < count {
+		return make([]graphics.SpriteVertex, count)
+	}
+	return vertices[:count]
+}
+
+func ensureLitIndices(indices []uint16, count int) []uint16 {
+	if cap(indices) < count {
+		return make([]uint16, count)
+	}
+	return indices[:count]
+}
+
+func litSpriteVertexCount() int {
+	return (litSpriteGrid + 1) * (litSpriteGrid + 1)
+}
+
+func litSpriteIndexCount() int {
+	return litSpriteGrid * litSpriteGrid * 6
+}
+
+func drawCallsForIndexCount(indexCount int) int {
+	if indexCount == 0 {
+		return 0
+	}
+	return 1
+}
+
+func lerpVec2(a, b lmath.Vec2, t float32) lmath.Vec2 {
+	return lmath.Vec2{X: a.X + (b.X-a.X)*t, Y: a.Y + (b.Y-a.Y)*t}
+}
+
+func lerpColor(a, b lmath.Color, t float32) lmath.Color {
+	return lmath.Color{
+		R: a.R + (b.R-a.R)*t,
+		G: a.G + (b.G-a.G)*t,
+		B: a.B + (b.B-a.B)*t,
+		A: a.A + (b.A-a.A)*t,
+	}
 }

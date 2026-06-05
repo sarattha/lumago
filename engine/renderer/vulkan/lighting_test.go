@@ -119,40 +119,65 @@ func TestPrepareLightsForFrameTransformsWorldLightsToFramebufferSpace(t *testing
 	}
 }
 
-func TestShadeSpriteVerticesForLightingRespondsToLights(t *testing.T) {
+func TestLitSpriteBatchForLightingRespondsToInteriorLights(t *testing.T) {
 	batch := singleSpriteBatch(graphics.Material2D{})
 	config := graphics.LightingConfig2D{
 		Ambient: lmath.Color{R: 0, G: 0, B: 0, A: 1},
 	}
 
-	dark := shadeSpriteVerticesForLighting(nil, batch, nil, config, vk.Extent2D{Width: 100, Height: 100})
-	lit := shadeSpriteVerticesForLighting(nil, batch, []graphics.Light2D{
+	dark, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, batch, nil, config, vk.Extent2D{Width: 100, Height: 100})
+	lit, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, batch, []graphics.Light2D{
 		{
 			Position:  lmath.Vec2{X: 50, Y: 50},
-			Radius:    100,
+			Radius:    8,
 			Color:     lmath.White(),
 			Intensity: 1,
 			Falloff:   1,
 		},
 	}, config, vk.Extent2D{Width: 100, Height: 100})
 
-	if !(dark[0].Color.R < lit[0].Color.R) {
-		t.Fatalf("expected light to increase red channel: dark=%+v lit=%+v", dark[0].Color, lit[0].Color)
+	center := litSpriteVertexCount() / 2
+	if !(dark.Vertices[center].Color.R < lit.Vertices[center].Color.R) {
+		t.Fatalf("expected interior light to increase center red channel: dark=%+v lit=%+v", dark.Vertices[center].Color, lit.Vertices[center].Color)
+	}
+	if lit.Vertices[0].Color.R != 0 {
+		t.Fatalf("corner was lit by an interior-only light: %+v", lit.Vertices[0].Color)
 	}
 	if batch.Vertices[0].Color != lmath.White() {
 		t.Fatalf("source batch vertex was mutated: %+v", batch.Vertices[0].Color)
 	}
 }
 
-func TestShadeSpriteVerticesForLightingSupportsDebugViews(t *testing.T) {
-	batch := singleSpriteBatch(graphics.Material2D{Normal: 2})
-	got := shadeSpriteVerticesForLighting(nil, batch, nil, graphics.LightingConfig2D{
+func TestLitSpriteBatchForLightingSamplesRegisteredNormalMaps(t *testing.T) {
+	flatNormal := graphics.TextureID(9001)
+	tiltedNormal := graphics.TextureID(9002)
+	graphics.RegisterTextureData(graphics.TextureData{
+		ID:     flatNormal,
+		Width:  1,
+		Height: 1,
+		Pixels: []lmath.Color{{R: 0.5, G: 0.5, B: 1, A: 1}},
+	})
+	graphics.RegisterTextureData(graphics.TextureData{
+		ID:     tiltedNormal,
+		Width:  1,
+		Height: 1,
+		Pixels: []lmath.Color{{R: 1, G: 0.5, B: 1, A: 1}},
+	})
+	flatBatch := singleSpriteBatch(graphics.Material2D{Normal: flatNormal})
+	tiltedBatch := singleSpriteBatch(graphics.Material2D{Normal: tiltedNormal})
+	config := graphics.LightingConfig2D{
 		Ambient:   lmath.White(),
 		DebugView: graphics.DebugViewSceneNormal,
-	}, vk.Extent2D{Width: 100, Height: 100})
+	}
 
-	if got[0].Color.B <= 0.5 {
-		t.Fatalf("normal debug color=%+v, want encoded positive z normal", got[0].Color)
+	flat, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, flatBatch, nil, config, vk.Extent2D{Width: 100, Height: 100})
+	tilted, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, tiltedBatch, nil, config, vk.Extent2D{Width: 100, Height: 100})
+
+	if flat.Vertices[0].Color == tilted.Vertices[0].Color {
+		t.Fatalf("different normal maps produced same debug output: flat=%+v tilted=%+v", flat.Vertices[0].Color, tilted.Vertices[0].Color)
+	}
+	if tilted.Vertices[0].Color.R != 1 {
+		t.Fatalf("tilted normal red=%f, want 1", tilted.Vertices[0].Color.R)
 	}
 }
 

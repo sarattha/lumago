@@ -13,8 +13,29 @@ type TextureInfo struct {
 	Height int
 }
 
+type TextureData struct {
+	ID     TextureID
+	Width  int
+	Height int
+	Pixels []lmath.Color
+}
+
+var textureData = map[TextureID]TextureData{}
+
 func (t TextureInfo) Valid() bool {
 	return t.ID != InvalidTexture
+}
+
+func RegisterTextureData(data TextureData) {
+	if data.ID == InvalidTexture || data.Width <= 0 || data.Height <= 0 || len(data.Pixels) == 0 {
+		return
+	}
+	textureData[data.ID] = data
+}
+
+func RegisteredTextureData(id TextureID) (TextureData, bool) {
+	data, ok := textureData[id]
+	return data, ok
 }
 
 type AtlasFrame struct {

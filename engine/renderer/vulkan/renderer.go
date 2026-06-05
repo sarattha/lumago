@@ -81,6 +81,7 @@ type Renderer struct {
 	pendingBatch    graphics.SpriteBatch
 	pendingLitBatch graphics.SpriteBatch
 	pendingLitVerts []graphics.SpriteVertex
+	pendingLitIndex []uint16
 	pendingLights   []graphics.Light2D
 	lightUpload     []byte
 	lightingConfig  graphics.LightingConfig2D
@@ -147,6 +148,7 @@ func (r *Renderer) BeginFrame(camera graphics.Camera2D) error {
 	r.pendingBatch = graphics.SpriteBatch{}
 	r.pendingLitBatch = graphics.SpriteBatch{}
 	r.pendingLitVerts = r.pendingLitVerts[:0]
+	r.pendingLitIndex = r.pendingLitIndex[:0]
 	r.pendingLights = r.pendingLights[:0]
 	r.lightUpload = r.lightUpload[:0]
 	r.lightingConfig = graphics.DefaultLightingConfig2D()
@@ -157,14 +159,12 @@ func (r *Renderer) BeginFrame(camera graphics.Camera2D) error {
 
 func (r *Renderer) SubmitSpriteBatch(batch graphics.SpriteBatch) error {
 	r.pendingBatch = batch
-	r.pendingLitBatch = batch
-	r.pendingLitVerts = shadeSpriteVerticesForLighting(r.pendingLitVerts, batch, r.pendingLights, r.lightingConfig, r.swapchainExtent)
-	r.pendingLitBatch.Vertices = r.pendingLitVerts
+	r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex = litSpriteBatchForLighting(r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex, batch, r.pendingLights, r.lightingConfig, r.swapchainExtent)
 	r.stats = erenderer.FrameStats{
 		Sprites:   batch.Stats.SpriteCount,
-		DrawCalls: batch.Stats.DrawCalls,
-		Vertices:  batch.Stats.VertexCount,
-		Indices:   batch.Stats.IndexCount,
+		DrawCalls: r.pendingLitBatch.Stats.DrawCalls,
+		Vertices:  r.pendingLitBatch.Stats.VertexCount,
+		Indices:   r.pendingLitBatch.Stats.IndexCount,
 	}
 	return r.uploadSpriteBatch(r.pendingLitBatch)
 }
@@ -173,9 +173,10 @@ func (r *Renderer) ConfigureLighting(config graphics.LightingConfig2D) error {
 	r.lightingConfig = config.WithDefaults()
 	r.lightingPasses = defaultLightingPasses(r.lightingConfig.DebugView)
 	if len(r.pendingBatch.Vertices) > 0 {
-		r.pendingLitBatch = r.pendingBatch
-		r.pendingLitVerts = shadeSpriteVerticesForLighting(r.pendingLitVerts, r.pendingBatch, r.pendingLights, r.lightingConfig, r.swapchainExtent)
-		r.pendingLitBatch.Vertices = r.pendingLitVerts
+		r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex = litSpriteBatchForLighting(r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex, r.pendingBatch, r.pendingLights, r.lightingConfig, r.swapchainExtent)
+		r.stats.DrawCalls = r.pendingLitBatch.Stats.DrawCalls
+		r.stats.Vertices = r.pendingLitBatch.Stats.VertexCount
+		r.stats.Indices = r.pendingLitBatch.Stats.IndexCount
 		return r.uploadSpriteBatch(r.pendingLitBatch)
 	}
 	return nil
@@ -186,9 +187,10 @@ func (r *Renderer) SubmitLights(lights []graphics.Light2D) error {
 	r.lightUpload = packLights(r.lightUpload, r.pendingLights)
 	r.stats.Lights = len(r.pendingLights)
 	if len(r.pendingBatch.Vertices) > 0 {
-		r.pendingLitBatch = r.pendingBatch
-		r.pendingLitVerts = shadeSpriteVerticesForLighting(r.pendingLitVerts, r.pendingBatch, r.pendingLights, r.lightingConfig, r.swapchainExtent)
-		r.pendingLitBatch.Vertices = r.pendingLitVerts
+		r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex = litSpriteBatchForLighting(r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex, r.pendingBatch, r.pendingLights, r.lightingConfig, r.swapchainExtent)
+		r.stats.DrawCalls = r.pendingLitBatch.Stats.DrawCalls
+		r.stats.Vertices = r.pendingLitBatch.Stats.VertexCount
+		r.stats.Indices = r.pendingLitBatch.Stats.IndexCount
 		return r.uploadSpriteBatch(r.pendingLitBatch)
 	}
 	return nil
