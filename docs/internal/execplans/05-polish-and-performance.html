@@ -37,6 +37,7 @@
     <ul>
       <li><label><input type="checkbox">Add a frame timing overlay with CPU frame time and GPU timing when available.</label></li>
       <li><label><input type="checkbox">Add draw call, sprite, light, and occluder counters.</label></li>
+      <li><label><input type="checkbox">Extend the Vulkan shim only for required timing markers, debug labels, and runtime diagnostic toggles.</label></li>
       <li><label><input type="checkbox">Add GPU timing markers around color, normal, shadow, light, SDF, and composite passes.</label></li>
       <li><label><input type="checkbox">Add memory allocation checks for the render hot path.</label></li>
       <li><label><input type="checkbox">Add development shader reload support for edited shader files.</label></li>
@@ -72,7 +73,7 @@
 
   <section>
     <h2>Handoff Notes</h2>
-    <p class="note">This plan closes the MVP loop. It should focus on measurement, stability, documentation, and acceptance evidence rather than adding new rendering features.</p>
+    <p class="note">This plan closes the MVP loop. It should focus on measurement, stability, documentation, acceptance evidence, and keeping diagnostic Vulkan shim additions narrow rather than adding new rendering features.</p>
   </section>
 </main>
 </body>

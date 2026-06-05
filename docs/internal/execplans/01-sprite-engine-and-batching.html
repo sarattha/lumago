@@ -41,6 +41,7 @@
       <li><label><input type="checkbox">Build a reusable sprite command buffer that can be cleared without per-frame heap churn.</label></li>
       <li><label><input type="checkbox">Sort sprite commands by layer, Z, material, and texture atlas page where applicable.</label></li>
       <li><label><input type="checkbox">Apply camera position, zoom, and rotation through a 2D transform matrix.</label></li>
+      <li><label><input type="checkbox">Extend the Vulkan shim only for required texture upload, descriptor, buffer, and batched draw calls.</label></li>
       <li><label><input type="checkbox">Upload sprite instance data in batches instead of issuing per-sprite Vulkan calls.</label></li>
       <li><label><input type="checkbox">Render 1,000+ sprites in the lighting_room example scene.</label></li>
       <li><label><input type="checkbox">Add simple camera movement to the sandbox or lighting room example.</label></li>
@@ -72,7 +73,7 @@
 
   <section>
     <h2>Handoff Notes</h2>
-    <p class="note">This plan should preserve the renderer abstraction. Public sprite, material, camera, and scene APIs may grow, but Vulkan handles and descriptors must remain backend-local.</p>
+    <p class="note">This plan should preserve the renderer abstraction. Public sprite, material, camera, and scene APIs may grow, but Vulkan handles, descriptors, and shim details must remain backend-local.</p>
   </section>
 </main>
 </body>

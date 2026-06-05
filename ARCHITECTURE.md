@@ -36,6 +36,20 @@ The renderer layer owns:
 - Shader execution
 - Final presentation
 
+## Rule: Narrow Vulkan Shim
+
+Vulkan calls should go through a small internal shim owned by the Vulkan backend,
+not through game-facing packages and not through a broad generated binding surface.
+
+Each phase should expose only the Vulkan functions, structs, and constants needed
+by that phase. If a phase needs a new Vulkan capability, add the minimum shim API
+for that capability and keep handles opaque to Go engine code.
+
+The shim must stay compatible with current macOS MoltenVK requirements while
+remaining backend-local. Required macOS details such as portability enumeration,
+portability subset, Metal surface creation, loader paths, and ICD selection belong
+in the backend or development documentation, not in gameplay APIs.
+
 ## Rule: No Vulkan Types in Game-Facing API
 
 Game code should not import the Vulkan backend directly.

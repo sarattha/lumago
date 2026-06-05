@@ -2,14 +2,21 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"runtime"
 
 	"github.com/sarattha/lumago/engine/app"
 	"github.com/sarattha/lumago/engine/graphics"
 	lmath "github.com/sarattha/lumago/engine/math"
+	"github.com/sarattha/lumago/engine/platform/desktop"
+	"github.com/sarattha/lumago/engine/renderer"
+	vulkanrenderer "github.com/sarattha/lumago/engine/renderer/vulkan"
 	"github.com/sarattha/lumago/engine/scene"
 )
 
 func main() {
+	runtime.LockOSThread()
+
 	game := app.NewGame(app.Config{
 		Width:  1280,
 		Height: 720,
@@ -63,6 +70,26 @@ func main() {
 	})
 
 	game.SetScene(world)
+
+	if os.Getenv("LUMAGO_RENDERER") == "nop" {
+		game.SetRenderer(renderer.NewNopRenderer())
+	} else {
+		window, err := desktop.NewWindow(game.Config.Width, game.Config.Height, game.Config.Title)
+		if err != nil {
+			panic(err)
+		}
+		vulkanRenderer, err := vulkanrenderer.NewRenderer(vulkanrenderer.Config{
+			Window:          window,
+			ShaderDirectory: "shaders/bin",
+			Validation:      os.Getenv("LUMAGO_VULKAN_VALIDATION") == "1",
+		})
+		if err != nil {
+			window.Close()
+			panic(err)
+		}
+		game.SetWindow(window)
+		game.SetRenderer(vulkanRenderer)
+	}
 
 	if err := game.Run(); err != nil {
 		panic(err)
