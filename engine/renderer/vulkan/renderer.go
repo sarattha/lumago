@@ -83,6 +83,7 @@ type Renderer struct {
 	lightUpload     []byte
 	lightingConfig  graphics.LightingConfig2D
 	lightingTargets lightingRenderTargets
+	lightingBuffers lightingRenderBuffers
 	lightingPasses  []lightingPass
 	stats           erenderer.FrameStats
 }
@@ -287,6 +288,9 @@ func (r *Renderer) init() error {
 	r.lightingTargets = defaultLightingRenderTargets(r.swapchainExtent, r.swapchainFormat)
 	r.lightingConfig = graphics.DefaultLightingConfig2D()
 	r.lightingPasses = defaultLightingPasses(r.lightingConfig.DebugView)
+	if err := r.createLightingRenderBuffers(); err != nil {
+		return err
+	}
 	if err := r.createRenderPass(); err != nil {
 		return err
 	}
@@ -833,6 +837,9 @@ func (r *Renderer) recreateSwapchain() error {
 		return err
 	}
 	r.lightingTargets = defaultLightingRenderTargets(r.swapchainExtent, r.swapchainFormat)
+	if err := r.createLightingRenderBuffers(); err != nil {
+		return err
+	}
 	if err := r.createRenderPass(); err != nil {
 		return err
 	}
@@ -870,6 +877,7 @@ func (r *Renderer) cleanupSwapchain() {
 		}
 	}
 	r.imageViews = nil
+	r.cleanupLightingRenderBuffers()
 	if r.swapchain != vk.NullSwapchain {
 		vk.DestroySwapchain(r.device, r.swapchain, nil)
 		r.swapchain = vk.NullSwapchain

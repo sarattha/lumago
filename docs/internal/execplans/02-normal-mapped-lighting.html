@@ -36,13 +36,13 @@
     <h2>Execution Checklist</h2>
     <ul>
       <li><label><input type="checkbox" checked>Confirm Material2D supports albedo texture, normal texture, roughness, and emissive values.</label></li>
-      <li><label><input type="checkbox">Extend the Vulkan shim only for required render target, descriptor, pipeline, and pass-transition calls.</label></li>
-      <li><label><input type="checkbox">Create scene color, scene normal, and light buffer render targets sized to the swapchain.</label></li>
-      <li><label><input type="checkbox">Implement the sprite color pass for albedo output.</label></li>
-      <li><label><input type="checkbox">Implement the sprite normal pass with default flat normals when a normal map is missing.</label></li>
+      <li><label><input type="checkbox" checked>Extend the Vulkan shim only for required render target, descriptor, pipeline, and pass-transition calls.</label></li>
+      <li><label><input type="checkbox" checked>Create scene color, scene normal, and light buffer render targets sized to the swapchain.</label></li>
+      <li><label><input type="checkbox" checked>Implement the sprite color pass for albedo output.</label></li>
+      <li><label><input type="checkbox" checked>Implement the sprite normal pass with default flat normals when a normal map is missing.</label></li>
       <li><label><input type="checkbox" checked>Implement point light data upload for position, radius, color, intensity, and falloff.</label></li>
       <li><label><input type="checkbox" checked>Implement the light accumulation shader using scene normals and configurable ambient light.</label></li>
-      <li><label><input type="checkbox">Implement the composite pass: sceneColor * lightBuffer + emissive.</label></li>
+      <li><label><input type="checkbox" checked>Implement the composite pass: sceneColor * lightBuffer + emissive.</label></li>
       <li><label><input type="checkbox" checked>Add debug views for scene color, scene normal, light buffer, and final composite.</label></li>
       <li><label><input type="checkbox" checked>Update the lighting_room example with four normal-mapped materials and four point lights.</label></li>
       <li><label><input type="checkbox" checked>Expose ambient light configuration through engine-level or scene-level settings.</label></li>
@@ -57,7 +57,7 @@
         <li><label><input type="checkbox">Normal maps work on floor, walls, characters, and props.</label></li>
         <li><label><input type="checkbox">Multiple point lights are visible in one scene.</label></li>
         <li><label><input type="checkbox" checked>Ambient light is configurable.</label></li>
-        <li><label><input type="checkbox">Debug views show color, normal, light, and composite buffers.</label></li>
+        <li><label><input type="checkbox" checked>Debug views show color, normal, light, and composite buffers.</label></li>
       </ul>
     </div>
     <div>

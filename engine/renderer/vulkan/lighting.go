@@ -19,6 +19,7 @@ const (
 	lightingTargetSceneColor lightingTargetKind = iota
 	lightingTargetSceneNormal
 	lightingTargetLightBuffer
+	lightingTargetSceneEmissive
 )
 
 type lightingPassKind uint8
@@ -39,9 +40,10 @@ type lightingTarget struct {
 }
 
 type lightingRenderTargets struct {
-	SceneColor  lightingTarget
-	SceneNormal lightingTarget
-	LightBuffer lightingTarget
+	SceneColor    lightingTarget
+	SceneNormal   lightingTarget
+	LightBuffer   lightingTarget
+	SceneEmissive lightingTarget
 }
 
 type lightingPass struct {
@@ -74,6 +76,13 @@ func defaultLightingRenderTargets(extent vk.Extent2D, colorFormat vk.Format) lig
 			Height: extent.Height,
 			Format: colorFormat,
 		},
+		SceneEmissive: lightingTarget{
+			Kind:   lightingTargetSceneEmissive,
+			Name:   "scene_emissive",
+			Width:  extent.Width,
+			Height: extent.Height,
+			Format: colorFormat,
+		},
 	}
 }
 
@@ -82,7 +91,7 @@ func defaultLightingPasses(debug graphics.DebugView2D) []lightingPass {
 		{
 			Kind:    lightingPassSpriteColor,
 			Name:    "sprite_color",
-			Outputs: []lightingTargetKind{lightingTargetSceneColor},
+			Outputs: []lightingTargetKind{lightingTargetSceneColor, lightingTargetSceneEmissive},
 		},
 		{
 			Kind:    lightingPassSpriteNormal,
@@ -102,6 +111,7 @@ func defaultLightingPasses(debug graphics.DebugView2D) []lightingPass {
 				lightingTargetSceneColor,
 				lightingTargetSceneNormal,
 				lightingTargetLightBuffer,
+				lightingTargetSceneEmissive,
 			},
 		},
 	}

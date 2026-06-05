@@ -16,6 +16,9 @@ func TestDefaultLightingRenderTargetsMatchSwapchainExtent(t *testing.T) {
 			t.Fatalf("%s extent=%dx%d, want 1280x720", target.Name, target.Width, target.Height)
 		}
 	}
+	if targets.SceneEmissive.Width != 1280 || targets.SceneEmissive.Height != 720 {
+		t.Fatalf("scene emissive extent=%dx%d, want 1280x720", targets.SceneEmissive.Width, targets.SceneEmissive.Height)
+	}
 	if targets.SceneNormal.Format != vk.FormatR8g8b8a8Unorm {
 		t.Fatalf("normal format=%d, want R8G8B8A8", targets.SceneNormal.Format)
 	}
@@ -31,6 +34,9 @@ func TestDefaultLightingPasses(t *testing.T) {
 	}
 	if len(passes) != len(want) {
 		t.Fatalf("pass count=%d, want %d", len(passes), len(want))
+	}
+	if len(passes[0].Outputs) != 2 || passes[0].Outputs[1] != lightingTargetSceneEmissive {
+		t.Fatalf("sprite color outputs=%v, want color and emissive", passes[0].Outputs)
 	}
 	for i, kind := range want {
 		if passes[i].Kind != kind {
