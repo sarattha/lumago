@@ -37,6 +37,7 @@
     <ul>
       <li><label><input type="checkbox">Define static level geometry inputs used to generate the SDF texture.</label></li>
       <li><label><input type="checkbox">Generate a static SDF texture from tilemap or occluder geometry.</label></li>
+      <li><label><input type="checkbox">Extend the Vulkan shim only for required SDF texture upload, sampling, and debug rendering calls.</label></li>
       <li><label><input type="checkbox">Upload the SDF texture to the Vulkan backend.</label></li>
       <li><label><input type="checkbox">Implement an SDF shadow shader that raymarches from light to pixel.</label></li>
       <li><label><input type="checkbox">Support one SDF-raymarched light in the demo scene.</label></li>
@@ -71,7 +72,7 @@
 
   <section>
     <h2>Handoff Notes</h2>
-    <p class="note">This plan is intentionally experimental. It should not block the MVP if normal-mapped lighting and per-light hard shadows are complete and reliable.</p>
+    <p class="note">This plan is intentionally experimental. It should not block the MVP if normal-mapped lighting and per-light hard shadows are complete and reliable; keep SDF-specific Vulkan shim additions isolated.</p>
   </section>
 </main>
 </body>

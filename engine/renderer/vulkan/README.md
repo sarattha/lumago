@@ -9,8 +9,12 @@ a Vulkan instance/device/swapchain, and renders one checker-textured quad using
 SPIR-V shaders from `shaders/bin`.
 
 On macOS, the current `vulkan-go` binding needs small Darwin shims for instance,
-device, and graphics pipeline creation because its generated create-info packing
-does not work reliably with Homebrew MoltenVK portability requirements.
+device, surface, and graphics pipeline creation because its generated create-info
+packing does not work reliably with Homebrew MoltenVK portability requirements.
+
+Future Vulkan work should continue this direction deliberately: add a narrow
+internal shim for only the Vulkan calls required by the active phase, instead of
+depending on a broad generated binding surface.
 
 ## Planned Files
 

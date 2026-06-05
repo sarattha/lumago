@@ -38,6 +38,7 @@
       <li><label><input type="checkbox">Finalize the occluder data model for polygon points, line segments, layer, and optional caster metadata.</label></li>
       <li><label><input type="checkbox">Add segment extraction from rectangle and polygon occluders.</label></li>
       <li><label><input type="checkbox">Cull occluder segments by light radius before shadow generation.</label></li>
+      <li><label><input type="checkbox">Extend the Vulkan shim only for required shadow texture, pass, descriptor, and shader input calls.</label></li>
       <li><label><input type="checkbox">Create per-light shadow texture resources for shadow-casting lights.</label></li>
       <li><label><input type="checkbox">Implement shadow map generation from light-relative occluder segments.</label></li>
       <li><label><input type="checkbox">Add shadow lookup to the light accumulation shader.</label></li>
@@ -72,7 +73,7 @@
 
   <section>
     <h2>Handoff Notes</h2>
-    <p class="note">This is the practical production shadow path. Keep SDF shadows separate and experimental until this hard-shadow path is reliable.</p>
+    <p class="note">This is the practical production shadow path. Keep SDF shadows separate and experimental until this hard-shadow path and its backend-local Vulkan shim additions are reliable.</p>
   </section>
 </main>
 </body>

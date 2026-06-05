@@ -46,6 +46,7 @@
       <li><label><input type="checkbox" checked>Compile placeholder shaders to SPIR-V or add a documented shader compilation command.</label></li>
       <li><label><input type="checkbox" checked>Render one textured quad to the swapchain using a Vulkan renderer implementation.</label></li>
       <li><label><input type="checkbox" checked>Keep Vulkan types inside the Vulkan backend; game-facing packages continue to use engine types.</label></li>
+      <li><label><input type="checkbox" checked>Isolate macOS MoltenVK compatibility work behind narrow backend-local Vulkan shims.</label></li>
       <li><label><input type="checkbox">Capture the first frame in RenderDoc and record any setup instructions.</label></li>
     </ul>
   </section>
@@ -74,7 +75,7 @@
 
   <section>
     <h2>Handoff Notes</h2>
-    <p class="note">This plan completes the roadmap bootstrap. Do not start sprite batching until windowing, swapchain presentation, and one textured quad are stable.</p>
+    <p class="note">This plan completes the roadmap bootstrap. Do not start sprite batching until windowing, swapchain presentation, one textured quad, and the backend-local Vulkan shim boundary are stable.</p>
   </section>
 </main>
 </body>

@@ -139,6 +139,12 @@ make run
 
 On macOS/Homebrew, `make run` sets the loader and MoltenVK ICD environment expected by the current `vulkan-go` binding. For direct runs, use the same environment shown in the `Makefile`.
 
+## Vulkan Binding Policy
+
+Vulkan integration should grow through a narrow internal backend shim. Each
+roadmap phase should add only the Vulkan/MoltenVK calls it needs, keeping Vulkan
+handles and portability details out of gameplay-facing packages.
+
 ## Current Package API Sketch
 
 ```go
