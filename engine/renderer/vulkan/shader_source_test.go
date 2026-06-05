@@ -30,5 +30,8 @@ func TestLightingShaderSourcesAreNotPlaceholders(t *testing.T) {
 		if strings.Contains(text, "outColor = vec4(1.0);") || strings.Contains(text, "outLight = vec4(1.0);") {
 			t.Fatalf("%s still contains placeholder output", name)
 		}
+		if name == "composite.frag" && strings.Contains(text, "color.rgb * color.a") {
+			t.Fatalf("%s uses sprite alpha as an emissive term", name)
+		}
 	}
 }

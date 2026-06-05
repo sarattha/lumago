@@ -77,6 +77,7 @@ type Renderer struct {
 	validation      bool
 	frameStarted    bool
 	imageIndex      uint32
+	frameCamera     graphics.Camera2D
 	pendingBatch    graphics.SpriteBatch
 	pendingLights   []graphics.Light2D
 	lightUpload     []byte
@@ -139,6 +140,7 @@ func (r *Renderer) BeginFrame(camera graphics.Camera2D) error {
 		return err
 	}
 	r.frameStarted = true
+	r.frameCamera = camera
 	r.pendingBatch = graphics.SpriteBatch{}
 	r.pendingLights = r.pendingLights[:0]
 	r.lightUpload = r.lightUpload[:0]
@@ -166,7 +168,7 @@ func (r *Renderer) ConfigureLighting(config graphics.LightingConfig2D) error {
 }
 
 func (r *Renderer) SubmitLights(lights []graphics.Light2D) error {
-	r.pendingLights = append(r.pendingLights[:0], lights...)
+	r.pendingLights = prepareLightsForFrame(r.pendingLights[:0], lights, r.frameCamera)
 	r.lightUpload = packLights(r.lightUpload, r.pendingLights)
 	r.stats.Lights = len(r.pendingLights)
 	return nil

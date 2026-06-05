@@ -84,3 +84,31 @@ func TestPackLights(t *testing.T) {
 		t.Fatalf("default alpha=%f, want 1", second.Color.A)
 	}
 }
+
+func TestPrepareLightsForFrameTransformsWorldLightsToFramebufferSpace(t *testing.T) {
+	lights := []graphics.Light2D{
+		{
+			Position:  lmath.Vec2{X: 12, Y: 23},
+			Radius:    50,
+			Intensity: 1,
+		},
+	}
+	camera := graphics.Camera2D{
+		Position: lmath.Vec2{X: 10, Y: 20},
+		Zoom:     2,
+	}
+
+	got := prepareLightsForFrame(nil, lights, camera)
+	if len(got) != 1 {
+		t.Fatalf("lights=%d, want 1", len(got))
+	}
+	if got[0].Position.X != 4 || got[0].Position.Y != 6 {
+		t.Fatalf("position=%+v, want framebuffer position (4, 6)", got[0].Position)
+	}
+	if got[0].Radius != 100 {
+		t.Fatalf("radius=%f, want 100", got[0].Radius)
+	}
+	if lights[0].Position.X != 12 || lights[0].Radius != 50 {
+		t.Fatalf("source light was mutated: %+v", lights[0])
+	}
+}

@@ -116,6 +116,24 @@ func defaultLightingPasses(debug graphics.DebugView2D) []lightingPass {
 	return passes
 }
 
+func prepareLightsForFrame(dst []graphics.Light2D, lights []graphics.Light2D, camera graphics.Camera2D) []graphics.Light2D {
+	view := camera.ViewMatrix()
+	zoom := camera.Zoom
+	if zoom == 0 {
+		zoom = 1
+	}
+	if zoom < 0 {
+		zoom = -zoom
+	}
+	for _, light := range lights {
+		frameLight := light
+		frameLight.Position = view.TransformPoint(light.Position)
+		frameLight.Radius = light.Radius * zoom
+		dst = append(dst, frameLight)
+	}
+	return dst
+}
+
 func packLights(data []byte, lights []graphics.Light2D) []byte {
 	size := len(lights) * packedLightStride
 	if cap(data) < size {

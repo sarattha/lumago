@@ -22,6 +22,6 @@ void main() {
     } else if (composite.debugView == 3) {
         outColor = light;
     } else {
-        outColor = vec4(color.rgb * light.rgb + color.rgb * color.a, color.a);
+        outColor = vec4(color.rgb * light.rgb, color.a);
     }
 }
