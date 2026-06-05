@@ -8,11 +8,13 @@ type Scene struct {
 	lights    []graphics.Light2D
 	occluders []graphics.Occluder2D
 	camera    graphics.Camera2D
+	lighting  graphics.LightingConfig2D
 }
 
 func New() *Scene {
 	return &Scene{
-		camera: graphics.DefaultCamera2D(),
+		camera:   graphics.DefaultCamera2D(),
+		lighting: graphics.DefaultLightingConfig2D(),
 	}
 }
 
@@ -47,6 +49,14 @@ func (s *Scene) BuildSpriteBatch(width, height int) graphics.SpriteBatch {
 
 func (s *Scene) Lights() []graphics.Light2D {
 	return s.lights
+}
+
+func (s *Scene) SetLightingConfig(config graphics.LightingConfig2D) {
+	s.lighting = config.WithDefaults()
+}
+
+func (s *Scene) LightingConfig() graphics.LightingConfig2D {
+	return s.lighting.WithDefaults()
 }
 
 func (s *Scene) Occluders() []graphics.Occluder2D {

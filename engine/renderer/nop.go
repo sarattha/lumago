@@ -32,7 +32,14 @@ func (r *NopRenderer) SubmitSpriteBatch(batch graphics.SpriteBatch) error {
 	return nil
 }
 
+func (r *NopRenderer) ConfigureLighting(config graphics.LightingConfig2D) error {
+	config = config.WithDefaults()
+	fmt.Printf("ambient=(%.2f, %.2f, %.2f) debug=%s\n", config.Ambient.R, config.Ambient.G, config.Ambient.B, config.DebugView)
+	return nil
+}
+
 func (r *NopRenderer) SubmitLights(lights []graphics.Light2D) error {
+	r.stats.Lights = len(lights)
 	fmt.Printf("lights=%d\n", len(lights))
 	return nil
 }
