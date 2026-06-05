@@ -79,6 +79,8 @@ type Renderer struct {
 	imageIndex      uint32
 	frameCamera     graphics.Camera2D
 	pendingBatch    graphics.SpriteBatch
+	pendingLitBatch graphics.SpriteBatch
+	pendingLitVerts []graphics.SpriteVertex
 	pendingLights   []graphics.Light2D
 	lightUpload     []byte
 	lightingConfig  graphics.LightingConfig2D
@@ -143,6 +145,8 @@ func (r *Renderer) BeginFrame(camera graphics.Camera2D) error {
 	r.frameStarted = true
 	r.frameCamera = camera
 	r.pendingBatch = graphics.SpriteBatch{}
+	r.pendingLitBatch = graphics.SpriteBatch{}
+	r.pendingLitVerts = r.pendingLitVerts[:0]
 	r.pendingLights = r.pendingLights[:0]
 	r.lightUpload = r.lightUpload[:0]
 	r.lightingConfig = graphics.DefaultLightingConfig2D()
@@ -153,18 +157,27 @@ func (r *Renderer) BeginFrame(camera graphics.Camera2D) error {
 
 func (r *Renderer) SubmitSpriteBatch(batch graphics.SpriteBatch) error {
 	r.pendingBatch = batch
+	r.pendingLitBatch = batch
+	r.pendingLitVerts = shadeSpriteVerticesForLighting(r.pendingLitVerts, batch, r.pendingLights, r.lightingConfig, r.swapchainExtent)
+	r.pendingLitBatch.Vertices = r.pendingLitVerts
 	r.stats = erenderer.FrameStats{
 		Sprites:   batch.Stats.SpriteCount,
 		DrawCalls: batch.Stats.DrawCalls,
 		Vertices:  batch.Stats.VertexCount,
 		Indices:   batch.Stats.IndexCount,
 	}
-	return r.uploadSpriteBatch(batch)
+	return r.uploadSpriteBatch(r.pendingLitBatch)
 }
 
 func (r *Renderer) ConfigureLighting(config graphics.LightingConfig2D) error {
 	r.lightingConfig = config.WithDefaults()
 	r.lightingPasses = defaultLightingPasses(r.lightingConfig.DebugView)
+	if len(r.pendingBatch.Vertices) > 0 {
+		r.pendingLitBatch = r.pendingBatch
+		r.pendingLitVerts = shadeSpriteVerticesForLighting(r.pendingLitVerts, r.pendingBatch, r.pendingLights, r.lightingConfig, r.swapchainExtent)
+		r.pendingLitBatch.Vertices = r.pendingLitVerts
+		return r.uploadSpriteBatch(r.pendingLitBatch)
+	}
 	return nil
 }
 
@@ -172,6 +185,12 @@ func (r *Renderer) SubmitLights(lights []graphics.Light2D) error {
 	r.pendingLights = prepareLightsForFrame(r.pendingLights[:0], lights, r.frameCamera)
 	r.lightUpload = packLights(r.lightUpload, r.pendingLights)
 	r.stats.Lights = len(r.pendingLights)
+	if len(r.pendingBatch.Vertices) > 0 {
+		r.pendingLitBatch = r.pendingBatch
+		r.pendingLitVerts = shadeSpriteVerticesForLighting(r.pendingLitVerts, r.pendingBatch, r.pendingLights, r.lightingConfig, r.swapchainExtent)
+		r.pendingLitBatch.Vertices = r.pendingLitVerts
+		return r.uploadSpriteBatch(r.pendingLitBatch)
+	}
 	return nil
 }
 

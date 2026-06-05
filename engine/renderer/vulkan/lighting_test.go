@@ -118,3 +118,58 @@ func TestPrepareLightsForFrameTransformsWorldLightsToFramebufferSpace(t *testing
 		t.Fatalf("source light was mutated: %+v", lights[0])
 	}
 }
+
+func TestShadeSpriteVerticesForLightingRespondsToLights(t *testing.T) {
+	batch := singleSpriteBatch(graphics.Material2D{})
+	config := graphics.LightingConfig2D{
+		Ambient: lmath.Color{R: 0, G: 0, B: 0, A: 1},
+	}
+
+	dark := shadeSpriteVerticesForLighting(nil, batch, nil, config, vk.Extent2D{Width: 100, Height: 100})
+	lit := shadeSpriteVerticesForLighting(nil, batch, []graphics.Light2D{
+		{
+			Position:  lmath.Vec2{X: 50, Y: 50},
+			Radius:    100,
+			Color:     lmath.White(),
+			Intensity: 1,
+			Falloff:   1,
+		},
+	}, config, vk.Extent2D{Width: 100, Height: 100})
+
+	if !(dark[0].Color.R < lit[0].Color.R) {
+		t.Fatalf("expected light to increase red channel: dark=%+v lit=%+v", dark[0].Color, lit[0].Color)
+	}
+	if batch.Vertices[0].Color != lmath.White() {
+		t.Fatalf("source batch vertex was mutated: %+v", batch.Vertices[0].Color)
+	}
+}
+
+func TestShadeSpriteVerticesForLightingSupportsDebugViews(t *testing.T) {
+	batch := singleSpriteBatch(graphics.Material2D{Normal: 2})
+	got := shadeSpriteVerticesForLighting(nil, batch, nil, graphics.LightingConfig2D{
+		Ambient:   lmath.White(),
+		DebugView: graphics.DebugViewSceneNormal,
+	}, vk.Extent2D{Width: 100, Height: 100})
+
+	if got[0].Color.B <= 0.5 {
+		t.Fatalf("normal debug color=%+v, want encoded positive z normal", got[0].Color)
+	}
+}
+
+func singleSpriteBatch(material graphics.Material2D) graphics.SpriteBatch {
+	var batch graphics.SpriteBatch
+	batch.Build([]graphics.SpriteDrawCommand{
+		{
+			Sprite: graphics.Sprite{
+				Material: material,
+				Src:      lmath.Rect{W: 20, H: 20},
+				Color:    lmath.White(),
+			},
+			Transform: graphics.Transform2D{
+				Position: lmath.Vec2{X: 50, Y: 50},
+				Scale:    lmath.Vec2{X: 1, Y: 1},
+			},
+		},
+	}, graphics.DefaultCamera2D(), 100, 100)
+	return batch
+}

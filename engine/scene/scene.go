@@ -26,6 +26,10 @@ func (s *Scene) AddLight(light graphics.Light2D) {
 	s.lights = append(s.lights, light)
 }
 
+func (s *Scene) SetLights(lights []graphics.Light2D) {
+	s.lights = append(s.lights[:0], lights...)
+}
+
 func (s *Scene) AddOccluder(occluder graphics.Occluder2D) {
 	s.occluders = append(s.occluders, occluder)
 }

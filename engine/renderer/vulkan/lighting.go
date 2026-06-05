@@ -144,6 +144,108 @@ func prepareLightsForFrame(dst []graphics.Light2D, lights []graphics.Light2D, ca
 	return dst
 }
 
+func shadeSpriteVerticesForLighting(dst []graphics.SpriteVertex, batch graphics.SpriteBatch, lights []graphics.Light2D, config graphics.LightingConfig2D, extent vk.Extent2D) []graphics.SpriteVertex {
+	if len(batch.Vertices) == 0 {
+		return dst[:0]
+	}
+	if cap(dst) < len(batch.Vertices) {
+		dst = make([]graphics.SpriteVertex, len(batch.Vertices))
+	} else {
+		dst = dst[:len(batch.Vertices)]
+	}
+	copy(dst, batch.Vertices)
+
+	config = config.WithDefaults()
+	for spriteIndex, command := range batch.Commands {
+		start := spriteIndex * 4
+		if start+4 > len(dst) {
+			break
+		}
+		for i := 0; i < 4; i++ {
+			vertex := &dst[start+i]
+			base := vertex.Color
+			normal := materialNormal(command.Sprite.Material, vertex.UV)
+			light := accumulatedLight(clipToFramebuffer(vertex.Position, extent), normal, lights, config.Ambient)
+			emissive := max0(command.Sprite.Material.Emissive)
+
+			switch config.DebugView {
+			case graphics.DebugViewSceneColor:
+				vertex.Color = base
+			case graphics.DebugViewSceneNormal:
+				vertex.Color = lmath.Color{R: normal.X*0.5 + 0.5, G: normal.Y*0.5 + 0.5, B: normalZ(normal)*0.5 + 0.5, A: base.A}
+			case graphics.DebugViewLightBuffer:
+				vertex.Color = lmath.Color{R: light.R, G: light.G, B: light.B, A: base.A}
+			default:
+				vertex.Color = lmath.Color{
+					R: base.R*light.R + base.R*emissive,
+					G: base.G*light.G + base.G*emissive,
+					B: base.B*light.B + base.B*emissive,
+					A: base.A,
+				}
+			}
+		}
+	}
+	return dst
+}
+
+func clipToFramebuffer(position lmath.Vec2, extent vk.Extent2D) lmath.Vec2 {
+	return lmath.Vec2{
+		X: (position.X + 1) * 0.5 * float32(extent.Width),
+		Y: (1 - position.Y) * 0.5 * float32(extent.Height),
+	}
+}
+
+func materialNormal(material graphics.Material2D, uv lmath.Vec2) lmath.Vec2 {
+	if material.Normal == graphics.InvalidTexture {
+		return lmath.Vec2{}
+	}
+	x := float32(math.Sin(float64((uv.X + uv.Y) * 18.8495559215)))
+	y := float32(math.Cos(float64((uv.X - uv.Y) * 18.8495559215)))
+	return lmath.Vec2{X: x * 0.35, Y: y * 0.35}
+}
+
+func normalZ(normal lmath.Vec2) float32 {
+	xy := normal.X*normal.X + normal.Y*normal.Y
+	if xy >= 1 {
+		return 0
+	}
+	return float32(math.Sqrt(float64(1 - xy)))
+}
+
+func accumulatedLight(pixel lmath.Vec2, normal lmath.Vec2, lights []graphics.Light2D, ambient lmath.Color) lmath.Color {
+	result := ambient
+	for _, light := range lights {
+		radius := max0(light.Radius)
+		if radius == 0 {
+			continue
+		}
+		delta := light.Position.Sub(pixel)
+		distance := float32(math.Sqrt(float64(delta.X*delta.X + delta.Y*delta.Y)))
+		attenuation := 1 - distance/radius
+		if attenuation <= 0 {
+			continue
+		}
+		falloff := light.Falloff
+		if falloff <= 0 {
+			falloff = 1
+		}
+		attenuation = float32(math.Pow(float64(attenuation), float64(falloff)))
+		dir := lmath.Vec2{X: delta.X / radius, Y: delta.Y / radius}
+		nz := normalZ(normal)
+		dz := float32(1)
+		len := float32(math.Sqrt(float64(dir.X*dir.X + dir.Y*dir.Y + dz*dz)))
+		ndotl := (normal.X*dir.X + normal.Y*dir.Y + nz*dz) / len
+		if ndotl < 0 {
+			ndotl = 0
+		}
+		intensity := max0(light.Intensity) * attenuation * ndotl
+		result.R += light.Color.R * intensity
+		result.G += light.Color.G * intensity
+		result.B += light.Color.B * intensity
+	}
+	return result
+}
+
 func packLights(data []byte, lights []graphics.Light2D) []byte {
 	size := len(lights) * packedLightStride
 	if cap(data) < size {
