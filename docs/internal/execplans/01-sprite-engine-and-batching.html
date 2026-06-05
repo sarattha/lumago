@@ -35,17 +35,17 @@
   <section>
     <h2>Execution Checklist</h2>
     <ul>
-      <li><label><input type="checkbox">Define the sprite batch data contract consumed by the renderer.</label></li>
-      <li><label><input type="checkbox">Add texture loading for image files used by examples and tests.</label></li>
-      <li><label><input type="checkbox">Add texture atlas metadata and UV lookup support for sprite source rectangles.</label></li>
-      <li><label><input type="checkbox">Build a reusable sprite command buffer that can be cleared without per-frame heap churn.</label></li>
-      <li><label><input type="checkbox">Sort sprite commands by layer, Z, material, and texture atlas page where applicable.</label></li>
-      <li><label><input type="checkbox">Apply camera position, zoom, and rotation through a 2D transform matrix.</label></li>
-      <li><label><input type="checkbox">Extend the Vulkan shim only for required texture upload, descriptor, buffer, and batched draw calls.</label></li>
-      <li><label><input type="checkbox">Upload sprite instance data in batches instead of issuing per-sprite Vulkan calls.</label></li>
-      <li><label><input type="checkbox">Render 1,000+ sprites in the lighting_room example scene.</label></li>
-      <li><label><input type="checkbox">Add simple camera movement to the sandbox or lighting room example.</label></li>
-      <li><label><input type="checkbox">Record draw call and sprite count data for later debug overlays.</label></li>
+      <li><label><input type="checkbox" checked>Define the sprite batch data contract consumed by the renderer.</label></li>
+      <li><label><input type="checkbox" checked>Add texture loading for image files used by examples and tests.</label></li>
+      <li><label><input type="checkbox" checked>Add texture atlas metadata and UV lookup support for sprite source rectangles.</label></li>
+      <li><label><input type="checkbox" checked>Build a reusable sprite command buffer that can be cleared without per-frame heap churn.</label></li>
+      <li><label><input type="checkbox" checked>Sort sprite commands by layer, Z, material, and texture atlas page where applicable.</label></li>
+      <li><label><input type="checkbox" checked>Apply camera position, zoom, and rotation through a 2D transform matrix.</label></li>
+      <li><label><input type="checkbox" checked>Extend the Vulkan shim only for required texture upload, descriptor, buffer, and batched draw calls.</label></li>
+      <li><label><input type="checkbox" checked>Upload sprite instance data in batches instead of issuing per-sprite Vulkan calls.</label></li>
+      <li><label><input type="checkbox" checked>Render 1,000+ sprites in the lighting_room example scene.</label></li>
+      <li><label><input type="checkbox" checked>Add simple camera movement to the sandbox or lighting room example.</label></li>
+      <li><label><input type="checkbox" checked>Record draw call and sprite count data for later debug overlays.</label></li>
     </ul>
   </section>
 
@@ -53,20 +53,20 @@
     <div>
       <h2>Acceptance Checklist</h2>
       <ul>
-        <li><label><input type="checkbox">1,000+ sprites render in one scene.</label></li>
-        <li><label><input type="checkbox">Layer and Z sorting are visibly correct.</label></li>
-        <li><label><input type="checkbox">Sprites can use a texture atlas.</label></li>
-        <li><label><input type="checkbox">Renderer submission is batched, not one Vulkan call per sprite.</label></li>
-        <li><label><input type="checkbox">Hot path avoids avoidable per-frame heap allocation.</label></li>
+        <li><label><input type="checkbox" checked>1,000+ sprites render in one scene.</label></li>
+        <li><label><input type="checkbox" checked>Layer and Z sorting are visibly correct.</label></li>
+        <li><label><input type="checkbox" checked>Sprites can use a texture atlas.</label></li>
+        <li><label><input type="checkbox" checked>Renderer submission is batched, not one Vulkan call per sprite.</label></li>
+        <li><label><input type="checkbox" checked>Hot path avoids avoidable per-frame heap allocation.</label></li>
       </ul>
     </div>
     <div>
       <h2>Verification</h2>
       <ul>
-        <li><label><input type="checkbox">Run gofmt on edited Go files.</label></li>
-        <li><label><input type="checkbox">Run go test ./...</label></li>
-        <li><label><input type="checkbox">Run go vet ./...</label></li>
-        <li><label><input type="checkbox">Run the 1,000 sprite demo and confirm stable frame presentation.</label></li>
+        <li><label><input type="checkbox" checked>Run gofmt on edited Go files.</label></li>
+        <li><label><input type="checkbox" checked>Run go test ./...</label></li>
+        <li><label><input type="checkbox" checked>Run go vet ./...</label></li>
+        <li><label><input type="checkbox" checked>Run the 1,000 sprite demo and confirm stable frame presentation.</label></li>
       </ul>
     </div>
   </section>

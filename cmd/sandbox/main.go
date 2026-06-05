@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"runtime"
+	"time"
 
 	"github.com/sarattha/lumago/engine/app"
 	"github.com/sarattha/lumago/engine/graphics"
@@ -35,20 +37,28 @@ func main() {
 		Emissive:  0.0,
 	}
 
-	world.AddSprite(graphics.SpriteDrawCommand{
-		Sprite: graphics.Sprite{
-			Material: floorMaterial,
-			Src:      lmath.Rect{X: 0, Y: 0, W: 256, H: 256},
-			Color:    lmath.White(),
-		},
-		Transform: graphics.Transform2D{
-			Position: lmath.Vec2{X: 0, Y: 0},
-			Scale:    lmath.Vec2{X: 1, Y: 1},
-			Rotation: 0,
-			Z:        0,
-		},
-		Layer: 0,
-	})
+	for y := 0; y < 32; y++ {
+		for x := 0; x < 32; x++ {
+			world.AddSprite(graphics.SpriteDrawCommand{
+				Sprite: graphics.Sprite{
+					Material: floorMaterial,
+					Src:      lmath.Rect{X: 0, Y: 0, W: 24, H: 24},
+					Color: lmath.Color{
+						R: 0.55 + float32(x%8)*0.05,
+						G: 0.75,
+						B: 0.85 - float32(y%8)*0.04,
+						A: 1,
+					},
+				},
+				Transform: graphics.Transform2D{
+					Position: lmath.Vec2{X: float32(x * 30), Y: float32(y * 30)},
+					Scale:    lmath.Vec2{X: 1, Y: 1},
+					Z:        float32((x + y) % 4),
+				},
+				Layer: y % 3,
+			})
+		}
+	}
 
 	world.AddLight(graphics.Light2D{
 		Position:    lmath.Vec2{X: 300, Y: 220},
@@ -70,6 +80,18 @@ func main() {
 	})
 
 	game.SetScene(world)
+	cameraT := float32(0)
+	game.SetUpdateFunc(func(dt time.Duration) error {
+		cameraT += float32(dt.Seconds())
+		camera := world.Camera()
+		camera.Position = lmath.Vec2{
+			X: 320 + 160*float32(math.Sin(float64(cameraT*0.7))),
+			Y: 280 + 120*float32(math.Cos(float64(cameraT*0.5))),
+		}
+		camera.Zoom = 1.2
+		world.SetCamera(camera)
+		return nil
+	})
 
 	if os.Getenv("LUMAGO_RENDERER") == "nop" {
 		game.SetRenderer(renderer.NewNopRenderer())

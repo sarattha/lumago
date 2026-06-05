@@ -6,33 +6,40 @@ import (
 	"math"
 	"unsafe"
 
+	"github.com/sarattha/lumago/engine/graphics"
+	lmath "github.com/sarattha/lumago/engine/math"
 	vk "github.com/sarattha/lumago/engine/renderer/vulkan/internal/vk"
 )
 
 const (
-	quadVertexStride = 16
+	quadVertexStride = 32
 	quadIndexCount   = 6
 )
 
 func (r *Renderer) createQuadResources() error {
-	vertexBytes := quadVertexBytes()
-	if err := r.createDeviceBuffer(
-		vertexBytes,
-		vk.BufferUsageFlags(vk.BufferUsageTransferDstBit|vk.BufferUsageVertexBufferBit),
-		&r.vertexBuffer,
-		&r.vertexMemory,
-	); err != nil {
-		return fmt.Errorf("create quad vertex buffer: %w", err)
-	}
-
+	vertexBytes := spriteVertexBytes([]graphics.SpriteVertex{
+		{Position: lmath.Vec2{X: -0.65, Y: -0.65}, UV: lmath.Vec2{X: 0, Y: 1}, Color: lmath.White()},
+		{Position: lmath.Vec2{X: 0.65, Y: -0.65}, UV: lmath.Vec2{X: 1, Y: 1}, Color: lmath.White()},
+		{Position: lmath.Vec2{X: 0.65, Y: 0.65}, UV: lmath.Vec2{X: 1, Y: 0}, Color: lmath.White()},
+		{Position: lmath.Vec2{X: -0.65, Y: 0.65}, UV: lmath.Vec2{X: 0, Y: 0}, Color: lmath.White()},
+	})
 	indexBytes := quadIndexBytes()
-	if err := r.createDeviceBuffer(
-		indexBytes,
-		vk.BufferUsageFlags(vk.BufferUsageTransferDstBit|vk.BufferUsageIndexBufferBit),
-		&r.indexBuffer,
-		&r.indexMemory,
-	); err != nil {
-		return fmt.Errorf("create quad index buffer: %w", err)
+	for i := range r.spriteFrames {
+		frame := &r.spriteFrames[i]
+		if err := r.createHostBuffer(len(vertexBytes), vk.BufferUsageFlags(vk.BufferUsageVertexBufferBit), &frame.vertexBuffer, &frame.vertexMemory); err != nil {
+			return fmt.Errorf("create frame %d sprite vertex buffer: %w", i, err)
+		}
+		frame.vertexCapacity = len(vertexBytes)
+		if err := r.copyToMemory(frame.vertexMemory, vertexBytes); err != nil {
+			return err
+		}
+		if err := r.createHostBuffer(len(indexBytes), vk.BufferUsageFlags(vk.BufferUsageIndexBufferBit), &frame.indexBuffer, &frame.indexMemory); err != nil {
+			return fmt.Errorf("create frame %d sprite index buffer: %w", i, err)
+		}
+		frame.indexCapacity = len(indexBytes)
+		if err := r.copyToMemory(frame.indexMemory, indexBytes); err != nil {
+			return err
+		}
 	}
 
 	if err := r.createQuadTexture(); err != nil {
@@ -70,21 +77,12 @@ func (r *Renderer) cleanupQuadResources() {
 		vk.FreeMemory(r.device, r.textureMemory, nil)
 		r.textureMemory = vk.NullDeviceMemory
 	}
-	if r.indexBuffer != vk.NullBuffer {
-		vk.DestroyBuffer(r.device, r.indexBuffer, nil)
-		r.indexBuffer = vk.NullBuffer
-	}
-	if r.indexMemory != vk.NullDeviceMemory {
-		vk.FreeMemory(r.device, r.indexMemory, nil)
-		r.indexMemory = vk.NullDeviceMemory
-	}
-	if r.vertexBuffer != vk.NullBuffer {
-		vk.DestroyBuffer(r.device, r.vertexBuffer, nil)
-		r.vertexBuffer = vk.NullBuffer
-	}
-	if r.vertexMemory != vk.NullDeviceMemory {
-		vk.FreeMemory(r.device, r.vertexMemory, nil)
-		r.vertexMemory = vk.NullDeviceMemory
+	for i := range r.spriteFrames {
+		frame := &r.spriteFrames[i]
+		r.destroyBuffer(&frame.indexBuffer, &frame.indexMemory)
+		frame.indexCapacity = 0
+		r.destroyBuffer(&frame.vertexBuffer, &frame.vertexMemory)
+		frame.vertexCapacity = 0
 	}
 }
 
@@ -116,6 +114,27 @@ func (r *Renderer) createDeviceBuffer(data []byte, usage vk.BufferUsageFlags, bu
 		return err
 	}
 	return r.copyBuffer(stagingBuffer, *buffer, vk.DeviceSize(len(data)))
+}
+
+func (r *Renderer) createHostBuffer(size int, usage vk.BufferUsageFlags, buffer *vk.Buffer, memory *vk.DeviceMemory) error {
+	return r.createBuffer(
+		vk.DeviceSize(size),
+		usage,
+		vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit),
+		buffer,
+		memory,
+	)
+}
+
+func (r *Renderer) destroyBuffer(buffer *vk.Buffer, memory *vk.DeviceMemory) {
+	if *buffer != vk.NullBuffer {
+		vk.DestroyBuffer(r.device, *buffer, nil)
+		*buffer = vk.NullBuffer
+	}
+	if *memory != vk.NullDeviceMemory {
+		vk.FreeMemory(r.device, *memory, nil)
+		*memory = vk.NullDeviceMemory
+	}
 }
 
 func (r *Renderer) createBuffer(size vk.DeviceSize, usage vk.BufferUsageFlags, properties vk.MemoryPropertyFlags, buffer *vk.Buffer, memory *vk.DeviceMemory) error {
@@ -480,28 +499,48 @@ func (r *Renderer) findMemoryType(typeFilter uint32, properties vk.MemoryPropert
 	return 0, fmt.Errorf("vulkan: no memory type supports 0x%x with properties 0x%x", typeFilter, properties)
 }
 
-func quadVertexBytes() []byte {
-	vertices := [][4]float32{
-		{-0.65, -0.65, 0, 1},
-		{0.65, -0.65, 1, 1},
-		{0.65, 0.65, 1, 0},
-		{-0.65, 0.65, 0, 0},
+func spriteVertexBytes(vertices []graphics.SpriteVertex) []byte {
+	return packSpriteVertices(nil, vertices)
+}
+
+func packSpriteVertices(data []byte, vertices []graphics.SpriteVertex) []byte {
+	size := len(vertices) * quadVertexStride
+	if cap(data) < size {
+		data = make([]byte, size)
+	} else {
+		data = data[:size]
 	}
-	data := make([]byte, len(vertices)*quadVertexStride)
 	for i, vertex := range vertices {
 		offset := i * quadVertexStride
-		for j, value := range vertex {
-			binary.LittleEndian.PutUint32(data[offset+j*4:], math.Float32bits(value))
-		}
+		binary.LittleEndian.PutUint32(data[offset:], math.Float32bits(vertex.Position.X))
+		binary.LittleEndian.PutUint32(data[offset+4:], math.Float32bits(vertex.Position.Y))
+		binary.LittleEndian.PutUint32(data[offset+8:], math.Float32bits(vertex.UV.X))
+		binary.LittleEndian.PutUint32(data[offset+12:], math.Float32bits(vertex.UV.Y))
+		binary.LittleEndian.PutUint32(data[offset+16:], math.Float32bits(vertex.Color.R))
+		binary.LittleEndian.PutUint32(data[offset+20:], math.Float32bits(vertex.Color.G))
+		binary.LittleEndian.PutUint32(data[offset+24:], math.Float32bits(vertex.Color.B))
+		binary.LittleEndian.PutUint32(data[offset+28:], math.Float32bits(vertex.Color.A))
+	}
+	return data
+}
+
+func spriteIndexBytes(indices []uint16) []byte {
+	return packSpriteIndices(nil, indices)
+}
+
+func packSpriteIndices(data []byte, indices []uint16) []byte {
+	size := len(indices) * 2
+	if cap(data) < size {
+		data = make([]byte, size)
+	} else {
+		data = data[:size]
+	}
+	for i, index := range indices {
+		binary.LittleEndian.PutUint16(data[i*2:], index)
 	}
 	return data
 }
 
 func quadIndexBytes() []byte {
-	indices := []uint16{0, 1, 2, 2, 3, 0}
-	data := make([]byte, len(indices)*2)
-	for i, index := range indices {
-		binary.LittleEndian.PutUint16(data[i*2:], index)
-	}
-	return data
+	return spriteIndexBytes([]uint16{0, 1, 2, 2, 3, 0})
 }

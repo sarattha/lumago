@@ -10,6 +10,7 @@ import (
 
 	"github.com/sarattha/lumago/engine/graphics"
 	"github.com/sarattha/lumago/engine/platform/desktop"
+	erenderer "github.com/sarattha/lumago/engine/renderer"
 	vk "github.com/sarattha/lumago/engine/renderer/vulkan/internal/vk"
 )
 
@@ -19,6 +20,17 @@ type Config struct {
 	Window          *desktop.Window
 	ShaderDirectory string
 	Validation      bool
+}
+
+type spriteFrameResources struct {
+	vertexBuffer   vk.Buffer
+	vertexMemory   vk.DeviceMemory
+	indexBuffer    vk.Buffer
+	indexMemory    vk.DeviceMemory
+	vertexCapacity int
+	indexCapacity  int
+	vertexUpload   []byte
+	indexUpload    []byte
 }
 
 type Renderer struct {
@@ -47,10 +59,7 @@ type Renderer struct {
 	commandPool    vk.CommandPool
 	commandBuffers []vk.CommandBuffer
 
-	vertexBuffer        vk.Buffer
-	vertexMemory        vk.DeviceMemory
-	indexBuffer         vk.Buffer
-	indexMemory         vk.DeviceMemory
+	spriteFrames        [framesInFlight]spriteFrameResources
 	textureImage        vk.Image
 	textureMemory       vk.DeviceMemory
 	textureImageView    vk.ImageView
@@ -68,6 +77,8 @@ type Renderer struct {
 	validation      bool
 	frameStarted    bool
 	imageIndex      uint32
+	pendingBatch    graphics.SpriteBatch
+	stats           erenderer.FrameStats
 }
 
 func NewRenderer(config Config) (*Renderer, error) {
@@ -122,15 +133,21 @@ func (r *Renderer) BeginFrame(camera graphics.Camera2D) error {
 	if err := check(vk.ResetCommandBuffer(r.commandBuffers[r.frame], 0), "reset command buffer"); err != nil {
 		return err
 	}
-	if err := r.recordCommandBuffer(r.commandBuffers[r.frame], r.imageIndex); err != nil {
-		return err
-	}
 	r.frameStarted = true
+	r.pendingBatch = graphics.SpriteBatch{}
+	r.stats = erenderer.FrameStats{}
 	return nil
 }
 
-func (r *Renderer) SubmitSprites(commands []graphics.SpriteDrawCommand) error {
-	return nil
+func (r *Renderer) SubmitSpriteBatch(batch graphics.SpriteBatch) error {
+	r.pendingBatch = batch
+	r.stats = erenderer.FrameStats{
+		Sprites:   batch.Stats.SpriteCount,
+		DrawCalls: batch.Stats.DrawCalls,
+		Vertices:  batch.Stats.VertexCount,
+		Indices:   batch.Stats.IndexCount,
+	}
+	return r.uploadSpriteBatch(batch)
 }
 
 func (r *Renderer) SubmitLights(lights []graphics.Light2D) error {
@@ -141,11 +158,18 @@ func (r *Renderer) SubmitOccluders(occluders []graphics.Occluder2D) error {
 	return nil
 }
 
+func (r *Renderer) Stats() erenderer.FrameStats {
+	return r.stats
+}
+
 func (r *Renderer) EndFrame() error {
 	if !r.frameStarted {
 		return nil
 	}
 	r.frameStarted = false
+	if err := r.recordCommandBuffer(r.commandBuffers[r.frame], r.imageIndex); err != nil {
+		return err
+	}
 
 	waitStages := []vk.PipelineStageFlags{vk.PipelineStageFlags(vk.PipelineStageColorAttachmentOutputBit)}
 	submit := vk.SubmitInfo{
@@ -559,6 +583,7 @@ func (r *Renderer) createPipeline() error {
 	attributes := []vk.VertexInputAttributeDescription{
 		{Location: 0, Binding: 0, Format: vk.FormatR32g32Sfloat, Offset: 0},
 		{Location: 1, Binding: 0, Format: vk.FormatR32g32Sfloat, Offset: 8},
+		{Location: 2, Binding: 0, Format: vk.FormatR32g32b32a32Sfloat, Offset: 16},
 	}
 	vertexInput := vk.PipelineVertexInputStateCreateInfo{
 		SType:                           vk.StructureTypePipelineVertexInputStateCreateInfo,
@@ -713,11 +738,59 @@ func (r *Renderer) recordCommandBuffer(commandBuffer vk.CommandBuffer, imageInde
 	vk.CmdBeginRenderPass(commandBuffer, &renderPassInfo, vk.SubpassContentsInline)
 	vk.CmdBindPipeline(commandBuffer, vk.PipelineBindPointGraphics, r.pipeline)
 	vk.CmdBindDescriptorSets(commandBuffer, vk.PipelineBindPointGraphics, r.pipelineLayout, 0, 1, []vk.DescriptorSet{r.descriptorSet}, 0, nil)
-	vk.CmdBindVertexBuffers(commandBuffer, 0, 1, []vk.Buffer{r.vertexBuffer}, []vk.DeviceSize{0})
-	vk.CmdBindIndexBuffer(commandBuffer, r.indexBuffer, 0, vk.IndexTypeUint16)
-	vk.CmdDrawIndexed(commandBuffer, quadIndexCount, 1, 0, 0, 0)
+	frame := &r.spriteFrames[r.frame]
+	vk.CmdBindVertexBuffers(commandBuffer, 0, 1, []vk.Buffer{frame.vertexBuffer}, []vk.DeviceSize{0})
+	vk.CmdBindIndexBuffer(commandBuffer, frame.indexBuffer, 0, vk.IndexTypeUint16)
+	if r.pendingBatch.Stats.IndexCount > 0 {
+		vk.CmdDrawIndexed(commandBuffer, uint32(r.pendingBatch.Stats.IndexCount), 1, 0, 0, 0)
+	}
 	vk.CmdEndRenderPass(commandBuffer)
 	return check(vk.EndCommandBuffer(commandBuffer), "end command buffer")
+}
+
+func (r *Renderer) uploadSpriteBatch(batch graphics.SpriteBatch) error {
+	if len(batch.Vertices) == 0 || len(batch.Indices) == 0 {
+		return nil
+	}
+
+	frame := &r.spriteFrames[r.frame]
+	frame.vertexUpload = packSpriteVertices(frame.vertexUpload, batch.Vertices)
+	frame.indexUpload = packSpriteIndices(frame.indexUpload, batch.Indices)
+
+	if err := r.ensureHostVertexBuffer(frame, len(frame.vertexUpload)); err != nil {
+		return err
+	}
+	if err := r.ensureHostIndexBuffer(frame, len(frame.indexUpload)); err != nil {
+		return err
+	}
+	if err := r.copyToMemory(frame.vertexMemory, frame.vertexUpload); err != nil {
+		return err
+	}
+	return r.copyToMemory(frame.indexMemory, frame.indexUpload)
+}
+
+func (r *Renderer) ensureHostVertexBuffer(frame *spriteFrameResources, size int) error {
+	if size <= frame.vertexCapacity {
+		return nil
+	}
+	r.destroyBuffer(&frame.vertexBuffer, &frame.vertexMemory)
+	if err := r.createHostBuffer(size, vk.BufferUsageFlags(vk.BufferUsageVertexBufferBit), &frame.vertexBuffer, &frame.vertexMemory); err != nil {
+		return err
+	}
+	frame.vertexCapacity = size
+	return nil
+}
+
+func (r *Renderer) ensureHostIndexBuffer(frame *spriteFrameResources, size int) error {
+	if size <= frame.indexCapacity {
+		return nil
+	}
+	r.destroyBuffer(&frame.indexBuffer, &frame.indexMemory)
+	if err := r.createHostBuffer(size, vk.BufferUsageFlags(vk.BufferUsageIndexBufferBit), &frame.indexBuffer, &frame.indexMemory); err != nil {
+		return err
+	}
+	frame.indexCapacity = size
+	return nil
 }
 
 func (r *Renderer) recreateSwapchain() error {
