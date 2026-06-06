@@ -156,6 +156,9 @@ func TestRunnerSceneUsesLightingShadowsAndReadableSpriteRoles(t *testing.T) {
 	if counts[22] < 20 {
 		t.Fatalf("score digit sprites=%d, want visible seven-segment score", counts[22])
 	}
+	if countRunnerSunMoonSprites(world.Sprites()) < 10 {
+		t.Fatalf("sun/moon marker too sparse: got %d sprites", countRunnerSunMoonSprites(world.Sprites()))
+	}
 }
 
 func countRunnerShadowLights(lights []graphics.Light2D) int {
@@ -174,6 +177,18 @@ func countRunnerLayers(sprites []graphics.SpriteDrawCommand) map[int]int {
 		counts[sprite.Layer]++
 	}
 	return counts
+}
+
+func countRunnerSunMoonSprites(sprites []graphics.SpriteDrawCommand) int {
+	count := 0
+	for _, sprite := range sprites {
+		x := sprite.Transform.Position.X
+		y := sprite.Transform.Position.Y
+		if sprite.Layer >= 2 && sprite.Layer <= 3 && x >= 1020 && x <= 1120 && y >= 554 && y <= 654 && sprite.Sprite.Material.Emissive > 1 {
+			count++
+		}
+	}
+	return count
 }
 
 func scoreHUDSegmentStates(sprites []graphics.SpriteDrawCommand) []bool {

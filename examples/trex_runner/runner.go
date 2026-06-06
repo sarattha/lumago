@@ -19,8 +19,8 @@ const (
 	runnerStartSpeed   = 520
 	runnerMaxSpeed     = 930
 
-	runnerLightCount       = 4
-	runnerShadowLightCount = 2
+	runnerLightCount       = 3
+	runnerShadowLightCount = 1
 )
 
 type runnerInput struct {
@@ -235,8 +235,7 @@ func addRunnerSky(world *scene.Scene, state runnerState) {
 	for _, cloud := range state.Clouds {
 		addRunnerCloud(world, cloud)
 	}
-	addRunnerRect(world, 1070, 604, 84, 84, lmath.Color{R: 1.00, G: 0.82, B: 0.46, A: 1}, 2, 2.8)
-	addRunnerRect(world, 1070, 604, 48, 48, lmath.Color{R: 1.00, G: 0.94, B: 0.68, A: 1}, 3, 3.5)
+	addRunnerSunMoon(world, 1070, 604)
 }
 
 func addRunnerCloud(world *scene.Scene, cloud runnerCloud) {
@@ -244,6 +243,23 @@ func addRunnerCloud(world *scene.Scene, cloud runnerCloud) {
 	addRunnerRect(world, cloud.X, cloud.Y, 92*cloud.Scale, 22*cloud.Scale, c, 2, 0.15)
 	addRunnerRect(world, cloud.X-28*cloud.Scale, cloud.Y-12*cloud.Scale, 34*cloud.Scale, 28*cloud.Scale, c, 2, 0.15)
 	addRunnerRect(world, cloud.X+16*cloud.Scale, cloud.Y-18*cloud.Scale, 44*cloud.Scale, 36*cloud.Scale, c, 2, 0.15)
+}
+
+func addRunnerSunMoon(world *scene.Scene, x, y float32) {
+	halo := lmath.Color{R: 1.00, G: 0.76, B: 0.30, A: 0.72}
+	core := lmath.Color{R: 1.00, G: 0.93, B: 0.58, A: 1}
+	ray := lmath.Color{R: 1.00, G: 0.86, B: 0.42, A: 1}
+
+	addRunnerRect(world, x, y, 76, 76, halo, 2, 1.8)
+	addRunnerRect(world, x, y, 48, 48, core, 3, 3.2)
+	addRunnerRect(world, x-44, y, 22, 8, ray, 3, 2.6)
+	addRunnerRect(world, x+44, y, 22, 8, ray, 3, 2.6)
+	addRunnerRect(world, x, y-44, 8, 22, ray, 3, 2.6)
+	addRunnerRect(world, x, y+44, 8, 22, ray, 3, 2.6)
+	addRunnerRect(world, x-32, y-32, 14, 14, ray, 3, 2.2)
+	addRunnerRect(world, x+32, y+32, 14, 14, ray, 3, 2.2)
+	addRunnerRect(world, x+32, y-32, 14, 14, ray, 3, 2.2)
+	addRunnerRect(world, x-32, y+32, 14, 14, ray, 3, 2.2)
 }
 
 func addRunnerTrack(world *scene.Scene, state runnerState) {
@@ -399,7 +415,6 @@ func addRunnerDigit(world *scene.Scene, x, y float32, digit int) {
 func addRunnerLights(world *scene.Scene, state runnerState) {
 	world.SetLights([]graphics.Light2D{
 		{Position: lmath.Vec2{X: 1070, Y: 604}, Radius: 760, Color: lmath.Color{R: 1.00, G: 0.84, B: 0.50, A: 1}, Intensity: 1.25, Falloff: 1.55, CastShadows: true},
-		{Position: lmath.Vec2{X: runnerDinoX + 38, Y: state.PlayerBottom + 64}, Radius: 230, Color: lmath.Color{R: 0.42, G: 1.00, B: 0.82, A: 1}, Intensity: 0.82, Falloff: 1.25, CastShadows: true},
 		{Position: lmath.Vec2{X: 330, Y: runnerGroundY - 10}, Radius: 260, Color: lmath.Color{R: 1.00, G: 0.82, B: 0.42, A: 1}, Intensity: 0.65, Falloff: 1.7},
 		{Position: lmath.Vec2{X: 930, Y: runnerGroundY - 10}, Radius: 310, Color: lmath.Color{R: 0.48, G: 0.70, B: 1.00, A: 1}, Intensity: 0.60, Falloff: 1.7},
 	})
