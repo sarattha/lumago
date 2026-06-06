@@ -12,7 +12,8 @@ func TestLightingShaderSourcesAreNotPlaceholders(t *testing.T) {
 	tests := map[string][]string{
 		"sprite_color.frag":  {"albedoTexture", "materialPass.emissive", "outEmissive"},
 		"sprite_normal.frag": {"normalTexture", "hasNormalMap", "vec4(0.5, 0.5, 1.0, 1.0)"},
-		"light_accum.frag":   {"sceneNormal", "PointLight", "uniforms.ambient", "dot(normal, lightDir)"},
+		"light_accum.frag":   {"sceneNormal", "PointLight", "uniforms.ambient", "dot(normal, lightDir)", "shadowMaps", "shadowFactor"},
+		"shadow_map.frag":    {"ShadowMapPush", "lightPosition", "lightRadius", "outShadow"},
 		"composite.frag":     {"sceneColor", "lightBuffer", "sceneEmissive", "debugView", "color.rgb * light.rgb + emissive.rgb"},
 	}
 

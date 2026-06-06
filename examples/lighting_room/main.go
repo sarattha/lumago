@@ -40,6 +40,7 @@ func main() {
 	addSprite(world, wall, lmath.Rect{W: 256, H: 96}, lmath.Vec2{X: 520, Y: 260}, lmath.Color{R: 0.58, G: 0.62, B: 0.68, A: 1}, 1)
 	addSprite(world, character, lmath.Rect{W: 64, H: 96}, lmath.Vec2{X: 440, Y: 395}, lmath.Color{R: 0.95, G: 0.82, B: 0.62, A: 1}, 2)
 	addSprite(world, prop, lmath.Rect{W: 80, H: 64}, lmath.Vec2{X: 610, Y: 405}, lmath.Color{R: 0.52, G: 0.84, B: 0.78, A: 1}, 2)
+	addOccluders(world)
 
 	updateLights(world, 0)
 	game.SetScene(world)
@@ -110,13 +111,60 @@ func light(x, y, radius float32, color lmath.Color, intensity float32) graphics.
 	}
 }
 
+func shadowLight(x, y, radius float32, color lmath.Color, intensity float32) graphics.Light2D {
+	light := light(x, y, radius, color, intensity)
+	light.CastShadows = true
+	return light
+}
+
 func updateLights(world *scene.Scene, t float32) {
 	world.SetLights([]graphics.Light2D{
-		light(380+90*float32(math.Sin(float64(t*1.1))), 300+70*float32(math.Cos(float64(t*0.8))), 340, lmath.Color{R: 1.00, G: 0.78, B: 0.45, A: 1}, 1.9),
-		light(710+110*float32(math.Cos(float64(t*0.9))), 315+60*float32(math.Sin(float64(t*1.4))), 280, lmath.Color{R: 0.45, G: 0.68, B: 1.00, A: 1}, 1.4),
+		shadowLight(380+90*float32(math.Sin(float64(t*1.1))), 300+70*float32(math.Cos(float64(t*0.8))), 340, lmath.Color{R: 1.00, G: 0.78, B: 0.45, A: 1}, 1.9),
+		shadowLight(710+110*float32(math.Cos(float64(t*0.9))), 315+60*float32(math.Sin(float64(t*1.4))), 280, lmath.Color{R: 0.45, G: 0.68, B: 1.00, A: 1}, 1.4),
 		light(470+75*float32(math.Sin(float64(t*1.7))), 500+45*float32(math.Sin(float64(t*0.7))), 220, lmath.Color{R: 0.85, G: 0.42, B: 1.00, A: 1}, 1.1),
 		light(830+100*float32(math.Cos(float64(t*0.6))), 470+80*float32(math.Sin(float64(t*1.2))), 380, lmath.Color{R: 0.55, G: 1.00, B: 0.70, A: 1}, 1.2),
 	})
+}
+
+func addOccluders(world *scene.Scene) {
+	rects := []lmath.Rect{
+		{X: 392, Y: 212, W: 256, H: 18},
+		{X: 392, Y: 308, W: 256, H: 18},
+		{X: 392, Y: 212, W: 18, H: 114},
+		{X: 630, Y: 212, W: 18, H: 114},
+		{X: 405, Y: 360, W: 72, H: 22},
+		{X: 520, Y: 352, W: 26, H: 96},
+		{X: 605, Y: 368, W: 84, H: 22},
+		{X: 330, Y: 430, W: 22, H: 98},
+		{X: 730, Y: 398, W: 24, H: 120},
+		{X: 465, Y: 535, W: 160, H: 18},
+		{X: 250, Y: 285, W: 70, H: 20},
+		{X: 780, Y: 275, W: 94, H: 20},
+		{X: 292, Y: 590, W: 120, H: 18},
+		{X: 725, Y: 580, W: 130, H: 18},
+		{X: 430, Y: 350, W: 64, H: 96},
+		{X: 570, Y: 372, W: 80, H: 64},
+	}
+	for i, rect := range rects {
+		occluder := graphics.RectOccluder2D(rect, 1)
+		switch i {
+		case 14:
+			occluder.Caster = graphics.ShadowCaster2D{ID: "character", Dynamic: true}
+		case 15:
+			occluder.Caster = graphics.ShadowCaster2D{ID: "prop", Dynamic: true}
+		}
+		world.AddOccluder(occluder)
+	}
+
+	segments := []graphics.Segment2D{
+		{A: lmath.Vec2{X: 310, Y: 335}, B: lmath.Vec2{X: 365, Y: 390}},
+		{A: lmath.Vec2{X: 690, Y: 335}, B: lmath.Vec2{X: 760, Y: 382}},
+		{A: lmath.Vec2{X: 365, Y: 505}, B: lmath.Vec2{X: 430, Y: 575}},
+		{A: lmath.Vec2{X: 655, Y: 515}, B: lmath.Vec2{X: 720, Y: 575}},
+	}
+	for _, segment := range segments {
+		world.AddOccluder(graphics.SegmentOccluder2D(segment.A, segment.B, 1))
+	}
 }
 
 func debugViewFromEnv() graphics.DebugView2D {
@@ -127,6 +175,8 @@ func debugViewFromEnv() graphics.DebugView2D {
 		return graphics.DebugViewSceneNormal
 	case "light":
 		return graphics.DebugViewLightBuffer
+	case "shadow":
+		return graphics.DebugViewShadowFactor
 	default:
 		return graphics.DebugViewFinalComposite
 	}
