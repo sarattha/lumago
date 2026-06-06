@@ -1,6 +1,6 @@
 VULKAN_ENV := GODEBUG=cgocheck=0 DYLD_LIBRARY_PATH=/opt/homebrew/lib DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib VK_ICD_FILENAMES=/opt/homebrew/Cellar/molten-vk/1.4.1/etc/vulkan/icd.d/MoltenVK_icd.json
 
-.PHONY: fmt test run run-nop vet tidy shaders
+.PHONY: fmt test run run-nop run-lighting run-lighting-nop vet tidy shaders
 
 fmt:
 	go fmt ./...
@@ -30,3 +30,9 @@ run: shaders
 
 run-nop:
 	LUMAGO_RENDERER=nop go run ./cmd/sandbox
+
+run-lighting: shaders
+	$(VULKAN_ENV) go run ./examples/lighting_room
+
+run-lighting-nop:
+	LUMAGO_RENDERER=nop go run ./examples/lighting_room

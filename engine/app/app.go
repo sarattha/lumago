@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"runtime"
 	"time"
 
 	"github.com/sarattha/lumago/engine/assets"
@@ -55,6 +56,10 @@ func (g *Game) SetWindow(window Window) {
 
 func (g *Game) SetUpdateFunc(update func(time.Duration) error) {
 	g.updateFunc = update
+}
+
+func (g *Game) Stats() renderer.FrameStats {
+	return g.renderer.Stats()
 }
 
 func (g *Game) Run() error {
@@ -117,14 +122,14 @@ func (g *Game) Run() error {
 }
 
 func (g *Game) runFrame() error {
+	frameStart := time.Now()
+	var memStart runtime.MemStats
+	runtime.ReadMemStats(&memStart)
 	if err := g.renderer.BeginFrame(g.scene.Camera()); err != nil {
 		return err
 	}
 
-	width, height := g.Config.Width, g.Config.Height
-	if g.window != nil {
-		width, height = g.window.FramebufferSize()
-	}
+	width, height := g.renderViewportSize()
 	if err := g.renderer.SubmitSpriteBatch(g.scene.BuildSpriteBatch(width, height)); err != nil {
 		return err
 	}
@@ -141,5 +146,20 @@ func (g *Game) runFrame() error {
 		return err
 	}
 
-	return g.renderer.EndFrame()
+	err := g.renderer.EndFrame()
+	var memEnd runtime.MemStats
+	runtime.ReadMemStats(&memEnd)
+	if memEnd.TotalAlloc >= memStart.TotalAlloc {
+		g.renderer.SetHotPathAllocBytes(memEnd.TotalAlloc - memStart.TotalAlloc)
+	}
+	g.renderer.SetCPUFrameTime(time.Since(frameStart))
+	return err
+}
+
+func (g *Game) renderViewportSize() (int, int) {
+	width, height := g.Config.Width, g.Config.Height
+	if (width <= 0 || height <= 0) && g.window != nil {
+		width, height = g.window.FramebufferSize()
+	}
+	return width, height
 }

@@ -127,17 +127,44 @@ make run
 ```
 
 Use `make run-nop` to run the sandbox through the fallback `NopRenderer`.
+Use `make run-lighting` to run the MVP lighting room demo, or
+`make run-lighting-nop` to run the same scene through `NopRenderer` diagnostics.
 
 ## Development Commands
 
 ```bash
 make fmt
 make test
+make vet
 make shaders
 make run
+make run-lighting
 ```
 
 On macOS/Homebrew, `make run` sets the loader and MoltenVK ICD environment expected by the local Vulkan backend layer. For direct runs, use the same environment shown in the `Makefile`.
+
+## MVP Runtime Requirements
+
+- Target demo resolution: 1920x1080
+- Target frame rate: 60 FPS on a mid-range desktop GPU
+- Go 1.26.4+ and a desktop Vulkan runtime
+- macOS/Homebrew Vulkan stack: `glfw`, `vulkan-loader`, `vulkan-headers`, `vulkan-validationlayers`, `vulkan-tools`, `shaderc`, and MoltenVK
+- Shader binaries in `shaders/bin`, generated with `make shaders`
+
+The lighting room reads `examples/lighting_room/lumago.conf` for window size,
+renderer mode, debug view, shadow mode, and development toggles. Environment
+variables override the file:
+
+- `LUMAGO_RENDERER=nop` runs without Vulkan.
+- `LUMAGO_DEBUG_VIEW=color|normal|light|shadow|sdf` selects the debug output.
+- `LUMAGO_SHADOW_MODE=sdf` enables experimental SDF shadows.
+- `LUMAGO_FRAME_LIMIT=1` is useful for short diagnostic runs.
+- `LUMAGO_VULKAN_VALIDATION=1` enables validation layers when present.
+
+When the demo debug overlay is enabled, diagnostics are printed with CPU frame
+time, GPU frame time when available, hot-path allocation bytes, draw calls,
+sprite count, light count, occluder count, and pass timings for color, normal,
+shadow, light, SDF, and composite passes.
 
 ## Vulkan Binding Policy
 

@@ -179,14 +179,9 @@ func (r *Renderer) createBuffer(size vk.DeviceSize, usage vk.BufferUsageFlags, p
 }
 
 func (r *Renderer) createQuadTexture() error {
-	const width = 2
-	const height = 2
-	pixels := []byte{
-		0xf2, 0xd1, 0x52, 0xff,
-		0x29, 0x8f, 0xb3, 0xff,
-		0x29, 0x8f, 0xb3, 0xff,
-		0xf2, 0xd1, 0x52, 0xff,
-	}
+	const width = 1
+	const height = 1
+	pixels := neutralQuadTexturePixels()
 
 	var stagingBuffer vk.Buffer
 	var stagingMemory vk.DeviceMemory
@@ -249,14 +244,18 @@ func (r *Renderer) createQuadTexture() error {
 		MagFilter:               vk.FilterNearest,
 		MinFilter:               vk.FilterNearest,
 		MipmapMode:              vk.SamplerMipmapModeNearest,
-		AddressModeU:            vk.SamplerAddressModeRepeat,
-		AddressModeV:            vk.SamplerAddressModeRepeat,
-		AddressModeW:            vk.SamplerAddressModeRepeat,
+		AddressModeU:            vk.SamplerAddressModeClampToEdge,
+		AddressModeV:            vk.SamplerAddressModeClampToEdge,
+		AddressModeW:            vk.SamplerAddressModeClampToEdge,
 		MaxLod:                  1,
 		BorderColor:             vk.BorderColorIntOpaqueBlack,
 		UnnormalizedCoordinates: vk.False,
 	}
 	return check(vk.CreateSampler(r.device, &samplerInfo, nil, &r.textureSampler), "create texture sampler")
+}
+
+func neutralQuadTexturePixels() []byte {
+	return []byte{0xff, 0xff, 0xff, 0xff}
 }
 
 func (r *Renderer) createImage(width, height uint32, format vk.Format, tiling vk.ImageTiling, usage vk.ImageUsageFlags, properties vk.MemoryPropertyFlags, image *vk.Image, memory *vk.DeviceMemory) error {

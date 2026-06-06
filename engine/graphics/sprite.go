@@ -33,10 +33,12 @@ type SpriteVertex struct {
 }
 
 type SpriteBatchStats struct {
-	SpriteCount int
-	DrawCalls   int
-	VertexCount int
-	IndexCount  int
+	SpriteCount    int
+	DrawCalls      int
+	VertexCount    int
+	IndexCount     int
+	ViewportWidth  int
+	ViewportHeight int
 }
 
 type SpriteBatch struct {
@@ -74,10 +76,12 @@ func (b *SpriteBatch) Build(commands []SpriteDrawCommand, camera Camera2D, viewp
 	}
 
 	b.Stats = SpriteBatchStats{
-		SpriteCount: len(b.Commands),
-		DrawCalls:   1,
-		VertexCount: len(b.Vertices),
-		IndexCount:  len(b.Indices),
+		SpriteCount:    len(b.Commands),
+		DrawCalls:      1,
+		VertexCount:    len(b.Vertices),
+		IndexCount:     len(b.Indices),
+		ViewportWidth:  viewportWidth,
+		ViewportHeight: viewportHeight,
 	}
 }
 

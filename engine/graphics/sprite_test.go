@@ -53,6 +53,9 @@ func TestSpriteBatchBuildsOneDraw(t *testing.T) {
 	if batch.Stats.SpriteCount != 2 || batch.Stats.DrawCalls != 1 {
 		t.Fatalf("stats=%+v, want 2 sprites and 1 draw", batch.Stats)
 	}
+	if batch.Stats.ViewportWidth != 400 || batch.Stats.ViewportHeight != 200 {
+		t.Fatalf("viewport=%dx%d, want 400x200", batch.Stats.ViewportWidth, batch.Stats.ViewportHeight)
+	}
 	if len(batch.Vertices) != 8 || len(batch.Indices) != 12 {
 		t.Fatalf("geometry vertices=%d indices=%d", len(batch.Vertices), len(batch.Indices))
 	}
