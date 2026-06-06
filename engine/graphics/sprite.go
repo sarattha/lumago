@@ -44,7 +44,7 @@ type SpriteBatchStats struct {
 type SpriteBatch struct {
 	Commands []SpriteDrawCommand
 	Vertices []SpriteVertex
-	Indices  []uint16
+	Indices  []uint32
 	Stats    SpriteBatchStats
 }
 
@@ -61,9 +61,6 @@ func (b *SpriteBatch) Build(commands []SpriteDrawCommand, camera Camera2D, viewp
 		return
 	}
 
-	if len(commands) > int(^uint16(0))/4 {
-		commands = commands[:int(^uint16(0))/4]
-	}
 	b.Commands = append(b.Commands, commands...)
 	SortSpriteCommands(b.Commands)
 
@@ -72,7 +69,7 @@ func (b *SpriteBatch) Build(commands []SpriteDrawCommand, camera Camera2D, viewp
 
 	view := camera.ViewMatrix()
 	for i, command := range b.Commands {
-		writeSpriteGeometry(b.Vertices[i*4:], b.Indices[i*6:], uint16(i*4), command, view, viewportWidth, viewportHeight)
+		writeSpriteGeometry(b.Vertices[i*4:], b.Indices[i*6:], uint32(i*4), command, view, viewportWidth, viewportHeight)
 	}
 
 	b.Stats = SpriteBatchStats{
@@ -114,14 +111,14 @@ func ensureSpriteVertices(vertices []SpriteVertex, count int) []SpriteVertex {
 	return vertices[:count]
 }
 
-func ensureSpriteIndices(indices []uint16, count int) []uint16 {
+func ensureSpriteIndices(indices []uint32, count int) []uint32 {
 	if cap(indices) < count {
-		return make([]uint16, count)
+		return make([]uint32, count)
 	}
 	return indices[:count]
 }
 
-func writeSpriteGeometry(vertices []SpriteVertex, indices []uint16, base uint16, command SpriteDrawCommand, view Mat3, viewportWidth, viewportHeight int) {
+func writeSpriteGeometry(vertices []SpriteVertex, indices []uint32, base uint32, command SpriteDrawCommand, view Mat3, viewportWidth, viewportHeight int) {
 	src := command.Sprite.Src
 	if src.W == 0 {
 		src.W = 1

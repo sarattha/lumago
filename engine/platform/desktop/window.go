@@ -26,6 +26,7 @@ import (
 	"unsafe"
 
 	"github.com/go-gl/glfw/v3.3/glfw"
+	"github.com/sarattha/lumago/engine/input"
 )
 
 type Window struct {
@@ -98,12 +99,40 @@ func (w *Window) WaitForFramebuffer() {
 	}
 }
 
+func (w *Window) KeyDown(key input.Key) bool {
+	if w.window == nil {
+		return false
+	}
+	return w.window.GetKey(glfwKey(key)) == glfw.Press
+}
+
 func (w *Window) Close() {
 	if w.window != nil {
 		w.window.Destroy()
 		w.window = nil
 	}
 	glfw.Terminate()
+}
+
+func glfwKey(key input.Key) glfw.Key {
+	switch key {
+	case input.KeySpace:
+		return glfw.KeySpace
+	case input.KeyUp:
+		return glfw.KeyUp
+	case input.KeyDown:
+		return glfw.KeyDown
+	case input.KeyW:
+		return glfw.KeyW
+	case input.KeyS:
+		return glfw.KeyS
+	case input.KeyR:
+		return glfw.KeyR
+	case input.KeyEscape:
+		return glfw.KeyEscape
+	default:
+		return glfw.KeyUnknown
+	}
 }
 
 func VulkanProcAddr() unsafe.Pointer {

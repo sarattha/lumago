@@ -10,8 +10,9 @@ import (
 )
 
 const (
-	packedLightStride = 48
-	litSpriteGrid     = 8
+	packedLightStride      = 48
+	litSpriteGrid          = 8
+	transparentTexelCutoff = 0.01
 )
 
 type lightingTargetKind uint8
@@ -145,19 +146,14 @@ func prepareLightsForFrame(dst []graphics.Light2D, lights []graphics.Light2D, ca
 	return dst
 }
 
-func litSpriteBatchForLighting(dst graphics.SpriteBatch, vertices []graphics.SpriteVertex, indices []uint16, batch graphics.SpriteBatch, lights []graphics.Light2D, shadows []lightShadowMap, sdf sdfTexture, config graphics.LightingConfig2D, extent vk.Extent2D) (graphics.SpriteBatch, []graphics.SpriteVertex, []uint16) {
+func litSpriteBatchForLighting(dst graphics.SpriteBatch, vertices []graphics.SpriteVertex, indices []uint32, batch graphics.SpriteBatch, lights []graphics.Light2D, shadows []lightShadowMap, sdf sdfTexture, config graphics.LightingConfig2D, extent vk.Extent2D) (graphics.SpriteBatch, []graphics.SpriteVertex, []uint32) {
 	if len(batch.Vertices) == 0 {
 		dst.Reset()
 		return dst, vertices[:0], indices[:0]
 	}
 
-	maxSprites := int(^uint16(0)) / litSpriteVertexCount()
 	commands := batch.Commands
-	if len(commands) > maxSprites {
-		commands = commands[:maxSprites]
-	}
-	vertexCount := len(commands) * litSpriteVertexCount()
-	indexCount := len(commands) * litSpriteIndexCount()
+	vertexCount, indexCount := litSpriteBatchGeometrySize(commands, batch.Vertices)
 	vertices = ensureLitVertices(vertices, vertexCount)
 	indices = ensureLitIndices(indices, indexCount)
 
@@ -165,15 +161,17 @@ func litSpriteBatchForLighting(dst graphics.SpriteBatch, vertices []graphics.Spr
 	dst.Vertices = vertices
 	dst.Indices = indices
 	config = config.WithDefaults()
+	vertexOffset := 0
+	indexOffset := 0
 	for spriteIndex, command := range commands {
 		sourceStart := spriteIndex * 4
 		if sourceStart+4 > len(batch.Vertices) {
 			break
 		}
-		writeLitSprite(
-			vertices[spriteIndex*litSpriteVertexCount():(spriteIndex+1)*litSpriteVertexCount()],
-			indices[spriteIndex*litSpriteIndexCount():(spriteIndex+1)*litSpriteIndexCount()],
-			uint16(spriteIndex*litSpriteVertexCount()),
+		writtenVertices, writtenIndices := writeLitSprite(
+			vertices[vertexOffset:],
+			indices[indexOffset:],
+			uint32(vertexOffset),
 			batch.Vertices[sourceStart:sourceStart+4],
 			command.Sprite.Material,
 			lights,
@@ -182,7 +180,13 @@ func litSpriteBatchForLighting(dst graphics.SpriteBatch, vertices []graphics.Spr
 			config,
 			extent,
 		)
+		vertexOffset += writtenVertices
+		indexOffset += writtenIndices
 	}
+	vertices = vertices[:vertexOffset]
+	indices = indices[:indexOffset]
+	dst.Vertices = vertices
+	dst.Indices = indices
 	dst.Stats = graphics.SpriteBatchStats{
 		SpriteCount: len(commands),
 		DrawCalls:   drawCallsForIndexCount(len(indices)),
@@ -192,7 +196,14 @@ func litSpriteBatchForLighting(dst graphics.SpriteBatch, vertices []graphics.Spr
 	return dst, vertices, indices
 }
 
-func writeLitSprite(dst []graphics.SpriteVertex, indices []uint16, base uint16, corners []graphics.SpriteVertex, material graphics.Material2D, lights []graphics.Light2D, shadows []lightShadowMap, sdf sdfTexture, config graphics.LightingConfig2D, extent vk.Extent2D) {
+func writeLitSprite(dst []graphics.SpriteVertex, indices []uint32, base uint32, corners []graphics.SpriteVertex, material graphics.Material2D, lights []graphics.Light2D, shadows []lightShadowMap, sdf sdfTexture, config graphics.LightingConfig2D, extent vk.Extent2D) (int, int) {
+	if texels, ok := litSpriteTexelGrid(material); ok {
+		return writeTexelLitSprite(dst, indices, base, corners, material, texels, lights, shadows, sdf, config, extent)
+	}
+	return writeGridLitSprite(dst, indices, base, corners, material, lights, shadows, sdf, config, extent)
+}
+
+func writeGridLitSprite(dst []graphics.SpriteVertex, indices []uint32, base uint32, corners []graphics.SpriteVertex, material graphics.Material2D, lights []graphics.Light2D, shadows []lightShadowMap, sdf sdfTexture, config graphics.LightingConfig2D, extent vk.Extent2D) (int, int) {
 	vertexIndex := 0
 	for y := 0; y <= litSpriteGrid; y++ {
 		ty := float32(y) / litSpriteGrid
@@ -209,9 +220,9 @@ func writeLitSprite(dst []graphics.SpriteVertex, indices []uint16, base uint16, 
 	stride := litSpriteGrid + 1
 	for y := 0; y < litSpriteGrid; y++ {
 		for x := 0; x < litSpriteGrid; x++ {
-			topLeft := base + uint16(y*stride+x)
+			topLeft := base + uint32(y*stride+x)
 			topRight := topLeft + 1
-			bottomLeft := topLeft + uint16(stride)
+			bottomLeft := topLeft + uint32(stride)
 			bottomRight := bottomLeft + 1
 			indices[index+0] = topLeft
 			indices[index+1] = topRight
@@ -222,6 +233,46 @@ func writeLitSprite(dst []graphics.SpriteVertex, indices []uint16, base uint16, 
 			index += 6
 		}
 	}
+	return litSpriteVertexCount(), litSpriteIndexCount()
+}
+
+func writeTexelLitSprite(dst []graphics.SpriteVertex, indices []uint32, base uint32, corners []graphics.SpriteVertex, material graphics.Material2D, texels litSpriteTexels, lights []graphics.Light2D, shadows []lightShadowMap, sdf sdfTexture, config graphics.LightingConfig2D, extent vk.Extent2D) (int, int) {
+	vertexIndex := 0
+	index := 0
+	for y := 0; y < texels.Height; y++ {
+		ty0 := float32(y) / float32(texels.Height)
+		ty1 := float32(y+1) / float32(texels.Height)
+		for x := 0; x < texels.Width; x++ {
+			tx0 := float32(x) / float32(texels.Width)
+			tx1 := float32(x+1) / float32(texels.Width)
+			center := interpolateSpriteVertex(corners, (tx0+tx1)*0.5, (ty0+ty1)*0.5)
+			albedo := materialAlbedo(material, center.UV)
+			if albedo.A <= transparentTexelCutoff {
+				continue
+			}
+			normal := materialNormal(material, center.UV)
+			cell := [4]graphics.SpriteVertex{
+				interpolateSpriteVertex(corners, tx0, ty0),
+				interpolateSpriteVertex(corners, tx1, ty0),
+				interpolateSpriteVertex(corners, tx1, ty1),
+				interpolateSpriteVertex(corners, tx0, ty1),
+			}
+			for i := range cell {
+				cell[i].Color = litVertexColorWithSamples(cell[i], albedo, normal, material.Emissive, lights, shadows, sdf, config, extent)
+				dst[vertexIndex+i] = cell[i]
+			}
+			cellBase := base + uint32(vertexIndex)
+			indices[index+0] = cellBase
+			indices[index+1] = cellBase + 1
+			indices[index+2] = cellBase + 2
+			indices[index+3] = cellBase + 2
+			indices[index+4] = cellBase + 3
+			indices[index+5] = cellBase
+			vertexIndex += 4
+			index += 6
+		}
+	}
+	return vertexIndex, index
 }
 
 func interpolateSpriteVertex(corners []graphics.SpriteVertex, tx, ty float32) graphics.SpriteVertex {
@@ -238,12 +289,69 @@ func interpolateVertex(a, b graphics.SpriteVertex, t float32) graphics.SpriteVer
 	}
 }
 
+type litSpriteTexels struct {
+	Width  int
+	Height int
+}
+
+func litSpriteBatchGeometrySize(commands []graphics.SpriteDrawCommand, sourceVertices []graphics.SpriteVertex) (int, int) {
+	vertexCount := 0
+	indexCount := 0
+	for spriteIndex, command := range commands {
+		sourceStart := spriteIndex * 4
+		if sourceStart+4 > len(sourceVertices) {
+			break
+		}
+		vertices, indices := litSpriteGeometrySize(command.Sprite.Material, sourceVertices[sourceStart:sourceStart+4])
+		vertexCount += vertices
+		indexCount += indices
+	}
+	return vertexCount, indexCount
+}
+
+func litSpriteGeometrySize(material graphics.Material2D, corners []graphics.SpriteVertex) (int, int) {
+	if texels, ok := litSpriteTexelGrid(material); ok {
+		visible := visibleLitTexelCount(material, texels, corners)
+		return visible * 4, visible * 6
+	}
+	return litSpriteVertexCount(), litSpriteIndexCount()
+}
+
+func litSpriteTexelGrid(material graphics.Material2D) (litSpriteTexels, bool) {
+	albedo, ok := graphics.RegisteredTextureData(material.Albedo)
+	if !ok || albedo.Width <= 1 && albedo.Height <= 1 {
+		return litSpriteTexels{}, false
+	}
+	if albedo.Width*albedo.Height <= 1 {
+		return litSpriteTexels{}, false
+	}
+	return litSpriteTexels{Width: albedo.Width, Height: albedo.Height}, true
+}
+
+func visibleLitTexelCount(material graphics.Material2D, texels litSpriteTexels, corners []graphics.SpriteVertex) int {
+	count := 0
+	for y := 0; y < texels.Height; y++ {
+		v := (float32(y) + 0.5) / float32(texels.Height)
+		for x := 0; x < texels.Width; x++ {
+			u := (float32(x) + 0.5) / float32(texels.Width)
+			center := interpolateSpriteVertex(corners, u, v)
+			if materialAlbedo(material, center.UV).A > transparentTexelCutoff {
+				count++
+			}
+		}
+	}
+	return count
+}
+
 func litVertexColor(vertex graphics.SpriteVertex, material graphics.Material2D, lights []graphics.Light2D, shadows []lightShadowMap, sdf sdfTexture, config graphics.LightingConfig2D, extent vk.Extent2D) lmath.Color {
-	base := multiplyColor(vertex.Color, materialAlbedo(material, vertex.UV))
-	normal := materialNormal(material, vertex.UV)
+	return litVertexColorWithSamples(vertex, materialAlbedo(material, vertex.UV), materialNormal(material, vertex.UV), material.Emissive, lights, shadows, sdf, config, extent)
+}
+
+func litVertexColorWithSamples(vertex graphics.SpriteVertex, albedo lmath.Color, normal lmath.Vec2, emissive float32, lights []graphics.Light2D, shadows []lightShadowMap, sdf sdfTexture, config graphics.LightingConfig2D, extent vk.Extent2D) lmath.Color {
+	base := multiplyColor(vertex.Color, albedo)
 	pixel := clipToFramebuffer(vertex.Position, extent)
 	light := accumulatedLight(pixel, normal, lights, shadows, sdf, config, config.Ambient)
-	emissive := max0(material.Emissive)
+	emissive = max0(emissive)
 
 	switch config.DebugView {
 	case graphics.DebugViewSceneColor:
@@ -464,9 +572,9 @@ func ensureLitVertices(vertices []graphics.SpriteVertex, count int) []graphics.S
 	return vertices[:count]
 }
 
-func ensureLitIndices(indices []uint16, count int) []uint16 {
+func ensureLitIndices(indices []uint32, count int) []uint32 {
 	if cap(indices) < count {
-		return make([]uint16, count)
+		return make([]uint32, count)
 	}
 	return indices[:count]
 }

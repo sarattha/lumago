@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/sarattha/lumago/engine/assets"
+	"github.com/sarattha/lumago/engine/input"
 	"github.com/sarattha/lumago/engine/renderer"
 	"github.com/sarattha/lumago/engine/scene"
 )
@@ -22,6 +23,7 @@ type Window interface {
 	PollEvents()
 	FramebufferSize() (int, int)
 	WaitForFramebuffer()
+	KeyDown(input.Key) bool
 	Close()
 }
 
