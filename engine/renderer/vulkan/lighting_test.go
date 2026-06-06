@@ -125,7 +125,7 @@ func TestLitSpriteBatchForLightingRespondsToInteriorLights(t *testing.T) {
 		Ambient: lmath.Color{R: 0, G: 0, B: 0, A: 1},
 	}
 
-	dark, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, batch, nil, nil, config, vk.Extent2D{Width: 100, Height: 100})
+	dark, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, batch, nil, nil, sdfTexture{}, config, vk.Extent2D{Width: 100, Height: 100})
 	lit, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, batch, []graphics.Light2D{
 		{
 			Position:  lmath.Vec2{X: 50, Y: 50},
@@ -134,7 +134,7 @@ func TestLitSpriteBatchForLightingRespondsToInteriorLights(t *testing.T) {
 			Intensity: 1,
 			Falloff:   1,
 		},
-	}, nil, config, vk.Extent2D{Width: 100, Height: 100})
+	}, nil, sdfTexture{}, config, vk.Extent2D{Width: 100, Height: 100})
 
 	center := litSpriteVertexCount() / 2
 	if !(dark.Vertices[center].Color.R < lit.Vertices[center].Color.R) {
@@ -170,8 +170,8 @@ func TestLitSpriteBatchForLightingSamplesRegisteredNormalMaps(t *testing.T) {
 		DebugView: graphics.DebugViewSceneNormal,
 	}
 
-	flat, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, flatBatch, nil, nil, config, vk.Extent2D{Width: 100, Height: 100})
-	tilted, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, tiltedBatch, nil, nil, config, vk.Extent2D{Width: 100, Height: 100})
+	flat, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, flatBatch, nil, nil, sdfTexture{}, config, vk.Extent2D{Width: 100, Height: 100})
+	tilted, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, tiltedBatch, nil, nil, sdfTexture{}, config, vk.Extent2D{Width: 100, Height: 100})
 
 	if flat.Vertices[0].Color == tilted.Vertices[0].Color {
 		t.Fatalf("different normal maps produced same debug output: flat=%+v tilted=%+v", flat.Vertices[0].Color, tilted.Vertices[0].Color)
@@ -197,8 +197,8 @@ func TestLitSpriteBatchForLightingAppliesShadowMaps(t *testing.T) {
 	shadows := buildLightShadowMaps(nil, lights, segments, 256)
 	config := graphics.LightingConfig2D{Ambient: lmath.Color{A: 1}}
 
-	lit, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, batch, lights, nil, config, vk.Extent2D{Width: 100, Height: 100})
-	shadowed, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, batch, lights, shadows, config, vk.Extent2D{Width: 100, Height: 100})
+	lit, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, batch, lights, nil, sdfTexture{}, config, vk.Extent2D{Width: 100, Height: 100})
+	shadowed, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, batch, lights, shadows, sdfTexture{}, config, vk.Extent2D{Width: 100, Height: 100})
 
 	center := litSpriteVertexCount() / 2
 	if !(shadowed.Vertices[center].Color.R < lit.Vertices[center].Color.R) {
@@ -222,10 +222,48 @@ func TestShadowFactorDebugViewOutputsGrayscaleShadow(t *testing.T) {
 	shadows := buildLightShadowMaps(nil, lights, segments, 256)
 	config := graphics.LightingConfig2D{Ambient: lmath.Color{A: 1}, DebugView: graphics.DebugViewShadowFactor}
 
-	got, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, batch, lights, shadows, config, vk.Extent2D{Width: 100, Height: 100})
+	got, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, batch, lights, shadows, sdfTexture{}, config, vk.Extent2D{Width: 100, Height: 100})
 	center := got.Vertices[litSpriteVertexCount()/2].Color
 	if center.R != 0 || center.G != 0 || center.B != 0 {
 		t.Fatalf("center debug color=%+v, want shadow black", center)
+	}
+}
+
+func TestLitSpriteBatchForLightingAppliesSDFMode(t *testing.T) {
+	batch := singleSpriteBatch(graphics.Material2D{})
+	lights := []graphics.Light2D{
+		{
+			Position:    lmath.Vec2{X: 40, Y: 50},
+			Radius:      80,
+			Color:       lmath.White(),
+			Intensity:   1,
+			Falloff:     1,
+			CastShadows: true,
+		},
+	}
+	occluder := graphics.SegmentOccluder2D(lmath.Vec2{X: 48, Y: 35}, lmath.Vec2{X: 48, Y: 65}, 1)
+	sdf := buildStaticSDFTextureFromOccluders(sdfTexture{}, []graphics.Occluder2D{occluder}, graphics.DefaultCamera2D(), 100, 100, 2)
+	config := graphics.LightingConfig2D{Ambient: lmath.Color{A: 1}, ShadowMode: graphics.ShadowModeSDFExperimental}
+
+	lit, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, batch, lights, nil, sdfTexture{}, config, vk.Extent2D{Width: 100, Height: 100})
+	shadowed, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, batch, lights, nil, sdf, config, vk.Extent2D{Width: 100, Height: 100})
+
+	center := litSpriteVertexCount() / 2
+	if !(shadowed.Vertices[center].Color.R < lit.Vertices[center].Color.R) {
+		t.Fatalf("sdf shadowed center was not darker: lit=%+v shadowed=%+v", lit.Vertices[center].Color, shadowed.Vertices[center].Color)
+	}
+}
+
+func TestSDFDebugViewOutputsDistanceVisualization(t *testing.T) {
+	batch := singleSpriteBatch(graphics.Material2D{})
+	occluder := graphics.RectOccluder2D(lmath.Rect{X: 45, Y: 45, W: 10, H: 10}, 1)
+	sdf := buildStaticSDFTextureFromOccluders(sdfTexture{}, []graphics.Occluder2D{occluder}, graphics.DefaultCamera2D(), 100, 100, 2)
+	config := graphics.LightingConfig2D{Ambient: lmath.Color{A: 1}, DebugView: graphics.DebugViewSDF, ShadowMode: graphics.ShadowModeSDFExperimental}
+
+	got, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, batch, nil, nil, sdf, config, vk.Extent2D{Width: 100, Height: 100})
+	center := got.Vertices[litSpriteVertexCount()/2].Color
+	if !(center.B > center.R) {
+		t.Fatalf("sdf debug center color=%+v, want inside occluder tint", center)
 	}
 }
 

@@ -34,7 +34,7 @@ func (r *NopRenderer) SubmitSpriteBatch(batch graphics.SpriteBatch) error {
 
 func (r *NopRenderer) ConfigureLighting(config graphics.LightingConfig2D) error {
 	config = config.WithDefaults()
-	fmt.Printf("ambient=(%.2f, %.2f, %.2f) debug=%s\n", config.Ambient.R, config.Ambient.G, config.Ambient.B, config.DebugView)
+	fmt.Printf("ambient=(%.2f, %.2f, %.2f) debug=%s shadow_mode=%s\n", config.Ambient.R, config.Ambient.G, config.Ambient.B, config.DebugView, config.ShadowMode)
 	return nil
 }
 

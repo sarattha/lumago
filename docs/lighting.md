@@ -69,3 +69,11 @@ For each pixel affected by light:
   else:
       lit
 ```
+
+Current limitations:
+
+- Enable with `LightingConfig2D.ShadowMode = ShadowModeSDFExperimental`, or run the lighting room demo with `LUMAGO_SHADOW_MODE=sdf`.
+- Inspect the generated SDF with `DebugViewSDF`, or run the demo with `LUMAGO_DEBUG_VIEW=sdf`.
+- Only the first shadow-casting light is raymarched in SDF mode; other shadow-casting lights remain unshadowed in this experimental path.
+- The SDF is generated from static occluders only. Occluders marked with `ShadowCaster2D.Dynamic` are excluded so moving geometry does not poison the static field.
+- The first implementation uses a coarse framebuffer-space SDF and CPU-side packing in the Vulkan backend. It is for comparison against hard shadow maps, not the default shipping shadow path.

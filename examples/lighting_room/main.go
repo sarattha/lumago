@@ -27,8 +27,9 @@ func main() {
 
 	world := scene.New()
 	world.SetLightingConfig(graphics.LightingConfig2D{
-		Ambient:   lmath.Color{R: 0.10, G: 0.10, B: 0.13, A: 1},
-		DebugView: debugViewFromEnv(),
+		Ambient:    lmath.Color{R: 0.10, G: 0.10, B: 0.13, A: 1},
+		DebugView:  debugViewFromEnv(),
+		ShadowMode: shadowModeFromEnv(),
 	})
 
 	floor := material(game, "floor", 0.80, 0)
@@ -177,7 +178,18 @@ func debugViewFromEnv() graphics.DebugView2D {
 		return graphics.DebugViewLightBuffer
 	case "shadow":
 		return graphics.DebugViewShadowFactor
+	case "sdf":
+		return graphics.DebugViewSDF
 	default:
 		return graphics.DebugViewFinalComposite
+	}
+}
+
+func shadowModeFromEnv() graphics.ShadowMode2D {
+	switch os.Getenv("LUMAGO_SHADOW_MODE") {
+	case "sdf":
+		return graphics.ShadowModeSDFExperimental
+	default:
+		return graphics.ShadowModeHardMaps
 	}
 }
