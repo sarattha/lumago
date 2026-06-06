@@ -181,6 +181,27 @@ func TestLitSpriteBatchForLightingSamplesRegisteredNormalMaps(t *testing.T) {
 	}
 }
 
+func TestLitSpriteBatchForLightingSamplesRegisteredAlbedoTextures(t *testing.T) {
+	albedo := graphics.TextureID(9010)
+	graphics.RegisterTextureData(graphics.TextureData{
+		ID:     albedo,
+		Width:  1,
+		Height: 1,
+		Pixels: []lmath.Color{{R: 0.25, G: 0.5, B: 0.75, A: 1}},
+	})
+	batch := singleSpriteBatch(graphics.Material2D{Albedo: albedo})
+	config := graphics.LightingConfig2D{
+		Ambient:   lmath.White(),
+		DebugView: graphics.DebugViewSceneColor,
+	}
+
+	lit, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, batch, nil, nil, sdfTexture{}, config, vk.Extent2D{Width: 100, Height: 100})
+
+	if got := lit.Vertices[0].Color; got.R != 0.25 || got.G != 0.5 || got.B != 0.75 || got.A != 1 {
+		t.Fatalf("albedo vertex color=%+v, want registered texture color", got)
+	}
+}
+
 func TestLitSpriteBatchForLightingAppliesShadowMaps(t *testing.T) {
 	batch := singleSpriteBatch(graphics.Material2D{})
 	lights := []graphics.Light2D{

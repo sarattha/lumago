@@ -239,7 +239,7 @@ func interpolateVertex(a, b graphics.SpriteVertex, t float32) graphics.SpriteVer
 }
 
 func litVertexColor(vertex graphics.SpriteVertex, material graphics.Material2D, lights []graphics.Light2D, shadows []lightShadowMap, sdf sdfTexture, config graphics.LightingConfig2D, extent vk.Extent2D) lmath.Color {
-	base := vertex.Color
+	base := multiplyColor(vertex.Color, materialAlbedo(material, vertex.UV))
 	normal := materialNormal(material, vertex.UV)
 	pixel := clipToFramebuffer(vertex.Position, extent)
 	light := accumulatedLight(pixel, normal, lights, shadows, sdf, config, config.Ambient)
@@ -273,6 +273,14 @@ func litVertexColor(vertex graphics.SpriteVertex, material graphics.Material2D, 
 			A: base.A,
 		}
 	}
+}
+
+func materialAlbedo(material graphics.Material2D, uv lmath.Vec2) lmath.Color {
+	data, ok := graphics.RegisteredTextureData(material.Albedo)
+	if !ok {
+		return lmath.White()
+	}
+	return sampleTextureData(data, uv)
 }
 
 func clipToFramebuffer(position lmath.Vec2, extent vk.Extent2D) lmath.Vec2 {
@@ -331,6 +339,15 @@ func accumulatedLight(pixel lmath.Vec2, normal lmath.Vec2, lights []graphics.Lig
 		result.B += light.Color.B * intensity
 	}
 	return result
+}
+
+func multiplyColor(a, b lmath.Color) lmath.Color {
+	return lmath.Color{
+		R: a.R * b.R,
+		G: a.G * b.G,
+		B: a.B * b.B,
+		A: a.A * b.A,
+	}
 }
 
 func packLights(data []byte, lights []graphics.Light2D) []byte {
