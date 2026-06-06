@@ -14,6 +14,7 @@ func TestLightingShaderSourcesAreNotPlaceholders(t *testing.T) {
 		"sprite_normal.frag": {"normalTexture", "hasNormalMap", "vec4(0.5, 0.5, 1.0, 1.0)"},
 		"light_accum.frag":   {"sceneNormal", "PointLight", "uniforms.ambient", "dot(normal, lightDir)", "shadowMaps", "shadowFactor"},
 		"shadow_map.frag":    {"ShadowMapPush", "lightPosition", "lightRadius", "outShadow"},
+		"sdf_shadow.frag":    {"SDFShadowPush", "sdfTexture", "raymarchShadow", "sampleSDF", "shadowFactor"},
 		"composite.frag":     {"sceneColor", "lightBuffer", "sceneEmissive", "debugView", "color.rgb * light.rgb + emissive.rgb"},
 	}
 

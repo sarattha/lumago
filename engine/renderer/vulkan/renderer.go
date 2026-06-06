@@ -85,7 +85,9 @@ type Renderer struct {
 	pendingLights    []graphics.Light2D
 	pendingOccluders []graphics.Occluder2D
 	pendingShadows   []lightShadowMap
+	pendingSDF       sdfTexture
 	lightUpload      []byte
+	sdfUpload        []byte
 	lightingConfig   graphics.LightingConfig2D
 	lightingTargets  lightingRenderTargets
 	lightingBuffers  lightingRenderBuffers
@@ -154,7 +156,9 @@ func (r *Renderer) BeginFrame(camera graphics.Camera2D) error {
 	r.pendingLights = r.pendingLights[:0]
 	r.pendingOccluders = r.pendingOccluders[:0]
 	r.pendingShadows = r.pendingShadows[:0]
+	r.pendingSDF = sdfTexture{Pixels: r.pendingSDF.Pixels[:0]}
 	r.lightUpload = r.lightUpload[:0]
+	r.sdfUpload = r.sdfUpload[:0]
 	r.lightingConfig = graphics.DefaultLightingConfig2D()
 	r.lightingPasses = defaultLightingPasses(r.lightingConfig.DebugView)
 	r.stats = erenderer.FrameStats{}
@@ -163,7 +167,7 @@ func (r *Renderer) BeginFrame(camera graphics.Camera2D) error {
 
 func (r *Renderer) SubmitSpriteBatch(batch graphics.SpriteBatch) error {
 	r.pendingBatch = batch
-	r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex = litSpriteBatchForLighting(r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex, batch, r.pendingLights, r.pendingShadows, r.lightingConfig, r.swapchainExtent)
+	r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex = litSpriteBatchForLighting(r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex, batch, r.pendingLights, r.pendingShadows, r.pendingSDF, r.lightingConfig, r.swapchainExtent)
 	r.stats = erenderer.FrameStats{
 		Sprites:   batch.Stats.SpriteCount,
 		DrawCalls: r.pendingLitBatch.Stats.DrawCalls,
@@ -177,7 +181,7 @@ func (r *Renderer) ConfigureLighting(config graphics.LightingConfig2D) error {
 	r.lightingConfig = config.WithDefaults()
 	r.lightingPasses = defaultLightingPasses(r.lightingConfig.DebugView)
 	if len(r.pendingBatch.Vertices) > 0 {
-		r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex = litSpriteBatchForLighting(r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex, r.pendingBatch, r.pendingLights, r.pendingShadows, r.lightingConfig, r.swapchainExtent)
+		r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex = litSpriteBatchForLighting(r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex, r.pendingBatch, r.pendingLights, r.pendingShadows, r.pendingSDF, r.lightingConfig, r.swapchainExtent)
 		r.stats.DrawCalls = r.pendingLitBatch.Stats.DrawCalls
 		r.stats.Vertices = r.pendingLitBatch.Stats.VertexCount
 		r.stats.Indices = r.pendingLitBatch.Stats.IndexCount
@@ -189,10 +193,12 @@ func (r *Renderer) ConfigureLighting(config graphics.LightingConfig2D) error {
 func (r *Renderer) SubmitLights(lights []graphics.Light2D) error {
 	r.pendingLights = prepareLightsForFrame(r.pendingLights[:0], lights, r.frameCamera)
 	r.pendingShadows = buildLightShadowMaps(r.pendingShadows[:0], r.pendingLights, prepareOccluderSegmentsForFrame(nil, r.pendingOccluders, r.frameCamera), defaultShadowMapResolution)
+	r.pendingSDF = buildStaticSDFTextureFromOccluders(r.pendingSDF, r.pendingOccluders, r.frameCamera, int(r.swapchainExtent.Width), int(r.swapchainExtent.Height), defaultSDFCellSize)
+	r.sdfUpload = packSDFTexture(r.sdfUpload, r.pendingSDF)
 	r.lightUpload = packLights(r.lightUpload, r.pendingLights)
 	r.stats.Lights = len(r.pendingLights)
 	if len(r.pendingBatch.Vertices) > 0 {
-		r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex = litSpriteBatchForLighting(r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex, r.pendingBatch, r.pendingLights, r.pendingShadows, r.lightingConfig, r.swapchainExtent)
+		r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex = litSpriteBatchForLighting(r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex, r.pendingBatch, r.pendingLights, r.pendingShadows, r.pendingSDF, r.lightingConfig, r.swapchainExtent)
 		r.stats.DrawCalls = r.pendingLitBatch.Stats.DrawCalls
 		r.stats.Vertices = r.pendingLitBatch.Stats.VertexCount
 		r.stats.Indices = r.pendingLitBatch.Stats.IndexCount
@@ -205,8 +211,10 @@ func (r *Renderer) SubmitOccluders(occluders []graphics.Occluder2D) error {
 	r.pendingOccluders = append(r.pendingOccluders[:0], occluders...)
 	segments := prepareOccluderSegmentsForFrame(nil, r.pendingOccluders, r.frameCamera)
 	r.pendingShadows = buildLightShadowMaps(r.pendingShadows[:0], r.pendingLights, segments, defaultShadowMapResolution)
+	r.pendingSDF = buildStaticSDFTextureFromOccluders(r.pendingSDF, r.pendingOccluders, r.frameCamera, int(r.swapchainExtent.Width), int(r.swapchainExtent.Height), defaultSDFCellSize)
+	r.sdfUpload = packSDFTexture(r.sdfUpload, r.pendingSDF)
 	if len(r.pendingBatch.Vertices) > 0 {
-		r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex = litSpriteBatchForLighting(r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex, r.pendingBatch, r.pendingLights, r.pendingShadows, r.lightingConfig, r.swapchainExtent)
+		r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex = litSpriteBatchForLighting(r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex, r.pendingBatch, r.pendingLights, r.pendingShadows, r.pendingSDF, r.lightingConfig, r.swapchainExtent)
 		r.stats.DrawCalls = r.pendingLitBatch.Stats.DrawCalls
 		r.stats.Vertices = r.pendingLitBatch.Stats.VertexCount
 		r.stats.Indices = r.pendingLitBatch.Stats.IndexCount

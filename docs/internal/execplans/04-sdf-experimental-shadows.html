@@ -35,16 +35,16 @@
   <section>
     <h2>Execution Checklist</h2>
     <ul>
-      <li><label><input type="checkbox">Define static level geometry inputs used to generate the SDF texture.</label></li>
-      <li><label><input type="checkbox">Generate a static SDF texture from tilemap or occluder geometry.</label></li>
-      <li><label><input type="checkbox">Extend the Vulkan shim only for required SDF texture upload, sampling, and debug rendering calls.</label></li>
-      <li><label><input type="checkbox">Upload the SDF texture to the Vulkan backend.</label></li>
-      <li><label><input type="checkbox">Implement an SDF shadow shader that raymarches from light to pixel.</label></li>
-      <li><label><input type="checkbox">Support one SDF-raymarched light in the demo scene.</label></li>
-      <li><label><input type="checkbox">Render a soft shadow factor into the lighting path.</label></li>
-      <li><label><input type="checkbox">Add a renderer mode toggle to compare SDF shadows with shadow-map shadows.</label></li>
-      <li><label><input type="checkbox">Add an SDF debug visualization.</label></li>
-      <li><label><input type="checkbox">Document SDF limitations and mark this path as experimental.</label></li>
+      <li><label><input type="checkbox" checked>Define static level geometry inputs used to generate the SDF texture.</label></li>
+      <li><label><input type="checkbox" checked>Generate a static SDF texture from tilemap or occluder geometry.</label></li>
+      <li><label><input type="checkbox" checked>Extend the Vulkan shim only for required SDF texture upload, sampling, and debug rendering calls.</label></li>
+      <li><label><input type="checkbox" checked>Upload the SDF texture to the Vulkan backend.</label></li>
+      <li><label><input type="checkbox" checked>Implement an SDF shadow shader that raymarches from light to pixel.</label></li>
+      <li><label><input type="checkbox" checked>Support one SDF-raymarched light in the demo scene.</label></li>
+      <li><label><input type="checkbox" checked>Render a soft shadow factor into the lighting path.</label></li>
+      <li><label><input type="checkbox" checked>Add a renderer mode toggle to compare SDF shadows with shadow-map shadows.</label></li>
+      <li><label><input type="checkbox" checked>Add an SDF debug visualization.</label></li>
+      <li><label><input type="checkbox" checked>Document SDF limitations and mark this path as experimental.</label></li>
     </ul>
   </section>
 
@@ -52,20 +52,20 @@
     <div>
       <h2>Acceptance Checklist</h2>
       <ul>
-        <li><label><input type="checkbox">A static tilemap or level geometry set can generate an SDF.</label></li>
-        <li><label><input type="checkbox">One light can use SDF raymarching.</label></li>
-        <li><label><input type="checkbox">Soft shadows are visible.</label></li>
-        <li><label><input type="checkbox">SDF mode can be toggled on and off for comparison.</label></li>
-        <li><label><input type="checkbox">SDF debug view is available.</label></li>
+        <li><label><input type="checkbox" checked>A static tilemap or level geometry set can generate an SDF.</label></li>
+        <li><label><input type="checkbox" checked>One light can use SDF raymarching.</label></li>
+        <li><label><input type="checkbox" checked>Soft shadows are visible.</label></li>
+        <li><label><input type="checkbox" checked>SDF mode can be toggled on and off for comparison.</label></li>
+        <li><label><input type="checkbox" checked>SDF debug view is available.</label></li>
       </ul>
     </div>
     <div>
       <h2>Verification</h2>
       <ul>
-        <li><label><input type="checkbox">Run gofmt on edited Go files.</label></li>
-        <li><label><input type="checkbox">Run go test ./...</label></li>
-        <li><label><input type="checkbox">Run go vet ./...</label></li>
-        <li><label><input type="checkbox">Compare SDF and hard-shadow modes in the same demo scene.</label></li>
+        <li><label><input type="checkbox" checked>Run gofmt on edited Go files.</label></li>
+        <li><label><input type="checkbox" checked>Run go test ./...</label></li>
+        <li><label><input type="checkbox" checked>Run go vet ./...</label></li>
+        <li><label><input type="checkbox" checked>Compare SDF and hard-shadow modes in the same demo scene.</label></li>
       </ul>
     </div>
   </section>
