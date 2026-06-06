@@ -30,8 +30,26 @@ func TestRunFrameRecordsFrameTimingAndAllocationStats(t *testing.T) {
 	}
 }
 
+func TestRunFrameUsesConfiguredViewportForSpriteBatch(t *testing.T) {
+	game := NewGame(Config{Width: 1920, Height: 1080})
+	world := scene.New()
+	world.AddSprite(graphics.SpriteDrawCommand{Sprite: graphics.Sprite{Color: lmath.White()}})
+	game.SetScene(world)
+	fake := &statsRenderer{}
+	game.SetRenderer(fake)
+	game.SetWindow(fixedFramebufferWindow{width: 3024, height: 1964})
+
+	if err := game.runFrame(); err != nil {
+		t.Fatal(err)
+	}
+	if fake.batch.Stats.ViewportWidth != 1920 || fake.batch.Stats.ViewportHeight != 1080 {
+		t.Fatalf("batch viewport=%dx%d, want configured 1920x1080", fake.batch.Stats.ViewportWidth, fake.batch.Stats.ViewportHeight)
+	}
+}
+
 type statsRenderer struct {
 	stats           renderer.FrameStats
+	batch           graphics.SpriteBatch
 	hotPathAllocSet bool
 }
 
@@ -47,6 +65,7 @@ func (r *statsRenderer) SetHotPathAllocBytes(bytes uint64) {
 }
 
 func (r *statsRenderer) SubmitSpriteBatch(batch graphics.SpriteBatch) error {
+	r.batch = batch
 	r.stats.Sprites = batch.Stats.SpriteCount
 	return nil
 }
@@ -72,3 +91,14 @@ func (r *statsRenderer) Resize(width, height int) error {
 	return nil
 }
 func (r *statsRenderer) Close() error { return nil }
+
+type fixedFramebufferWindow struct {
+	width  int
+	height int
+}
+
+func (w fixedFramebufferWindow) ShouldClose() bool           { return true }
+func (w fixedFramebufferWindow) PollEvents()                 {}
+func (w fixedFramebufferWindow) FramebufferSize() (int, int) { return w.width, w.height }
+func (w fixedFramebufferWindow) WaitForFramebuffer()         {}
+func (w fixedFramebufferWindow) Close()                      {}

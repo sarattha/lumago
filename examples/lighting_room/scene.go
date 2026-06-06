@@ -20,10 +20,14 @@ const (
 	acceptanceTargetHeight = 1080
 	acceptanceTileColumns  = 40
 	acceptanceTileRows     = 25
-	acceptanceTileSize     = 32
-	acceptanceTileSpacing  = 34
-	acceptanceOriginX      = 297
-	acceptanceOriginY      = 132
+	acceptanceTileSize     = 34
+	acceptanceTileSpacingX = 43
+	acceptanceTileSpacingY = 36
+	acceptanceOriginX      = 122
+	acceptanceOriginY      = 91
+	authoredTileSpacing    = 34
+	authoredOriginX        = 297
+	authoredOriginY        = 132
 )
 
 func buildLightingRoom(game *app.Game, config demoConfig) *scene.Scene {
@@ -62,8 +66,8 @@ func addAcceptanceSprites(world *scene.Scene, materials []graphics.Material2D) {
 				materials[materialIndex],
 				lmath.Rect{W: acceptanceTileSize, H: acceptanceTileSize},
 				lmath.Vec2{
-					X: acceptanceOriginX + float32(x*acceptanceTileSpacing),
-					Y: acceptanceOriginY + float32(y*acceptanceTileSpacing),
+					X: tileCenterX(x),
+					Y: tileCenterY(y),
 				},
 				lmath.Color{
 					R: min1(palette[materialIndex].R + jitter),
@@ -111,6 +115,35 @@ func tileJitter(x, y int) float32 {
 	return float32((x*3+y*5)%6) * 0.008
 }
 
+func tileCenterX(x int) float32 {
+	return acceptanceOriginX + float32(x*acceptanceTileSpacingX)
+}
+
+func tileCenterY(y int) float32 {
+	return acceptanceOriginY + float32(y*acceptanceTileSpacingY)
+}
+
+func roomX(x float32) float32 {
+	return acceptanceOriginX + (x-authoredOriginX)*float32(acceptanceTileSpacingX)/authoredTileSpacing
+}
+
+func roomY(y float32) float32 {
+	return acceptanceOriginY + (y-authoredOriginY)*float32(acceptanceTileSpacingY)/authoredTileSpacing
+}
+
+func roomRect(rect lmath.Rect) lmath.Rect {
+	return lmath.Rect{
+		X: roomX(rect.X),
+		Y: roomY(rect.Y),
+		W: rect.W * float32(acceptanceTileSpacingX) / authoredTileSpacing,
+		H: rect.H * float32(acceptanceTileSpacingY) / authoredTileSpacing,
+	}
+}
+
+func roomPoint(point lmath.Vec2) lmath.Vec2 {
+	return lmath.Vec2{X: roomX(point.X), Y: roomY(point.Y)}
+}
+
 func material(game *app.Game, name string, roughness, emissive float32) graphics.Material2D {
 	return graphics.Material2D{
 		Albedo:    game.Assets.LoadTexture("examples/lighting_room/assets/" + name + ".png"),
@@ -154,11 +187,17 @@ func shadowLight(x, y, radius float32, color lmath.Color, intensity float32) gra
 
 func updateLights(world *scene.Scene, t float32) {
 	world.SetLights([]graphics.Light2D{
-		shadowLight(610+90*float32(math.Sin(float64(t*1.1))), 360+65*float32(math.Cos(float64(t*0.8))), 430, lmath.Color{R: 1.00, G: 0.76, B: 0.46, A: 1}, 1.9),
-		shadowLight(1300+120*float32(math.Cos(float64(t*0.9))), 430+75*float32(math.Sin(float64(t*1.4))), 460, lmath.Color{R: 0.44, G: 0.66, B: 1.00, A: 1}, 1.5),
-		light(880+90*float32(math.Sin(float64(t*1.7))), 790+55*float32(math.Sin(float64(t*0.7))), 390, lmath.Color{R: 0.84, G: 0.44, B: 1.00, A: 1}, 1.1),
-		light(1510+95*float32(math.Cos(float64(t*0.6))), 760+70*float32(math.Sin(float64(t*1.2))), 420, lmath.Color{R: 0.54, G: 1.00, B: 0.70, A: 1}, 1.2),
+		shadowLight(roomX(610+90*float32(math.Sin(float64(t*1.1)))), roomY(360+65*float32(math.Cos(float64(t*0.8)))), roomRadius(430), lmath.Color{R: 1.00, G: 0.76, B: 0.46, A: 1}, 1.9),
+		shadowLight(roomX(1300+120*float32(math.Cos(float64(t*0.9)))), roomY(430+75*float32(math.Sin(float64(t*1.4)))), roomRadius(460), lmath.Color{R: 0.44, G: 0.66, B: 1.00, A: 1}, 1.5),
+		light(roomX(880+90*float32(math.Sin(float64(t*1.7)))), roomY(790+55*float32(math.Sin(float64(t*0.7)))), roomRadius(390), lmath.Color{R: 0.84, G: 0.44, B: 1.00, A: 1}, 1.1),
+		light(roomX(1510+95*float32(math.Cos(float64(t*0.6)))), roomY(760+70*float32(math.Sin(float64(t*1.2)))), roomRadius(420), lmath.Color{R: 0.54, G: 1.00, B: 0.70, A: 1}, 1.2),
 	})
+}
+
+func roomRadius(radius float32) float32 {
+	scaleX := float32(acceptanceTileSpacingX) / authoredTileSpacing
+	scaleY := float32(acceptanceTileSpacingY) / authoredTileSpacing
+	return radius * (scaleX + scaleY) * 0.5
 }
 
 func addAcceptanceOccluders(world *scene.Scene) {
@@ -181,7 +220,7 @@ func addAcceptanceOccluders(world *scene.Scene) {
 		{X: 1440, Y: 760, W: 96, H: 96},
 	}
 	for i, rect := range rects {
-		occluder := graphics.RectOccluder2D(rect, 1)
+		occluder := graphics.RectOccluder2D(roomRect(rect), 1)
 		if i >= 14 {
 			occluder.Caster = graphics.ShadowCaster2D{ID: "dynamic", Dynamic: true}
 		}
@@ -195,7 +234,9 @@ func addAcceptanceOccluders(world *scene.Scene) {
 		{A: lmath.Vec2{X: 1450, Y: 540}, B: lmath.Vec2{X: 1585, Y: 700}},
 	}
 	for _, segment := range segments {
-		world.AddOccluder(graphics.SegmentOccluder2D(segment.A, segment.B, 1))
+		a := roomPoint(segment.A)
+		b := roomPoint(segment.B)
+		world.AddOccluder(graphics.SegmentOccluder2D(a, b, 1))
 	}
 }
 

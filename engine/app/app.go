@@ -129,10 +129,7 @@ func (g *Game) runFrame() error {
 		return err
 	}
 
-	width, height := g.Config.Width, g.Config.Height
-	if g.window != nil {
-		width, height = g.window.FramebufferSize()
-	}
+	width, height := g.renderViewportSize()
 	if err := g.renderer.SubmitSpriteBatch(g.scene.BuildSpriteBatch(width, height)); err != nil {
 		return err
 	}
@@ -156,4 +153,12 @@ func (g *Game) runFrame() error {
 	}
 	g.renderer.SetCPUFrameTime(time.Since(frameStart))
 	return g.renderer.EndFrame()
+}
+
+func (g *Game) renderViewportSize() (int, int) {
+	width, height := g.Config.Width, g.Config.Height
+	if (width <= 0 || height <= 0) && g.window != nil {
+		width, height = g.window.FramebufferSize()
+	}
+	return width, height
 }

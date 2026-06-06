@@ -99,19 +99,19 @@ func TestLightingRoomLightsAreInsideRoomAndOccludersAlignToRoom(t *testing.T) {
 	world := buildLightingRoom(game, config)
 
 	for i, light := range world.Lights() {
-		if light.Position.X < 300 || light.Position.X > 1620 || light.Position.Y < 130 || light.Position.Y > 960 {
+		if light.Position.X < 120 || light.Position.X > 1810 || light.Position.Y < 90 || light.Position.Y > 960 {
 			t.Fatalf("light %d position=%+v, want inside room bounds", i, light.Position)
 		}
 	}
 
 	for i, occluder := range world.Occluders() {
 		for _, point := range occluder.Points {
-			if point.X < 270 || point.X > 1650 || point.Y < 100 || point.Y > 990 {
+			if point.X < 90 || point.X > 1840 || point.Y < 70 || point.Y > 1010 {
 				t.Fatalf("occluder %d point=%+v outside visible room bounds", i, point)
 			}
 		}
 		for _, segment := range occluder.Segments {
-			if segment.A.X < 270 || segment.B.X > 1650 || segment.A.Y < 100 || segment.B.Y > 990 {
+			if segment.A.X < 90 || segment.B.X > 1840 || segment.A.Y < 70 || segment.B.Y > 1010 {
 				t.Fatalf("occluder %d segment=%+v outside visible room bounds", i, segment)
 			}
 		}

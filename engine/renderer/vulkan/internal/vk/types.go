@@ -334,7 +334,10 @@ const SamplerMipmapModeNearest SamplerMipmapMode = 0
 
 type SamplerAddressMode int32
 
-const SamplerAddressModeRepeat SamplerAddressMode = 0
+const (
+	SamplerAddressModeRepeat      SamplerAddressMode = 0
+	SamplerAddressModeClampToEdge SamplerAddressMode = 2
+)
 
 type BorderColor int32
 

@@ -87,6 +87,7 @@ type Renderer struct {
 	pendingLitBatch  graphics.SpriteBatch
 	pendingLitVerts  []graphics.SpriteVertex
 	pendingLitIndex  []uint16
+	pendingViewport  vk.Extent2D
 	pendingLights    []graphics.Light2D
 	pendingOccluders []graphics.Occluder2D
 	pendingShadows   []lightShadowMap
@@ -163,6 +164,7 @@ func (r *Renderer) BeginFrame(camera graphics.Camera2D) error {
 	r.pendingLitBatch = graphics.SpriteBatch{}
 	r.pendingLitVerts = r.pendingLitVerts[:0]
 	r.pendingLitIndex = r.pendingLitIndex[:0]
+	r.pendingViewport = vk.Extent2D{}
 	r.pendingLights = r.pendingLights[:0]
 	r.pendingOccluders = r.pendingOccluders[:0]
 	r.pendingShadows = r.pendingShadows[:0]
@@ -186,7 +188,8 @@ func (r *Renderer) SetHotPathAllocBytes(bytes uint64) {
 
 func (r *Renderer) SubmitSpriteBatch(batch graphics.SpriteBatch) error {
 	r.pendingBatch = batch
-	r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex = litSpriteBatchForLighting(r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex, batch, r.pendingLights, r.pendingShadows, r.pendingSDF, r.lightingConfig, r.swapchainExtent)
+	r.pendingViewport = viewportExtentForBatch(batch, r.swapchainExtent)
+	r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex = litSpriteBatchForLighting(r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex, batch, r.pendingLights, r.pendingShadows, r.pendingSDF, r.lightingConfig, r.pendingViewport)
 	r.stats = erenderer.FrameStats{
 		Sprites:   batch.Stats.SpriteCount,
 		DrawCalls: r.pendingLitBatch.Stats.DrawCalls,
@@ -202,7 +205,7 @@ func (r *Renderer) ConfigureLighting(config graphics.LightingConfig2D) error {
 	r.lightingPasses = defaultLightingPasses(r.lightingConfig.DebugView)
 	r.stats.DebugView = r.lightingConfig.DebugView
 	if len(r.pendingBatch.Vertices) > 0 {
-		r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex = litSpriteBatchForLighting(r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex, r.pendingBatch, r.pendingLights, r.pendingShadows, r.pendingSDF, r.lightingConfig, r.swapchainExtent)
+		r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex = litSpriteBatchForLighting(r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex, r.pendingBatch, r.pendingLights, r.pendingShadows, r.pendingSDF, r.lightingConfig, r.pendingViewport)
 		r.stats.DrawCalls = r.pendingLitBatch.Stats.DrawCalls
 		r.stats.Vertices = r.pendingLitBatch.Stats.VertexCount
 		r.stats.Indices = r.pendingLitBatch.Stats.IndexCount
@@ -214,12 +217,12 @@ func (r *Renderer) ConfigureLighting(config graphics.LightingConfig2D) error {
 func (r *Renderer) SubmitLights(lights []graphics.Light2D) error {
 	r.pendingLights = prepareLightsForFrame(r.pendingLights[:0], lights, r.frameCamera)
 	r.pendingShadows = buildLightShadowMaps(r.pendingShadows[:0], r.pendingLights, prepareOccluderSegmentsForFrame(nil, r.pendingOccluders, r.frameCamera), defaultShadowMapResolution)
-	r.pendingSDF = buildStaticSDFTextureFromOccluders(r.pendingSDF, r.pendingOccluders, r.frameCamera, int(r.swapchainExtent.Width), int(r.swapchainExtent.Height), defaultSDFCellSize)
+	r.pendingSDF = buildStaticSDFTextureFromOccluders(r.pendingSDF, r.pendingOccluders, r.frameCamera, int(r.pendingViewport.Width), int(r.pendingViewport.Height), defaultSDFCellSize)
 	r.sdfUpload = packSDFTexture(r.sdfUpload, r.pendingSDF)
 	r.lightUpload = packLights(r.lightUpload, r.pendingLights)
 	r.stats.Lights = len(r.pendingLights)
 	if len(r.pendingBatch.Vertices) > 0 {
-		r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex = litSpriteBatchForLighting(r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex, r.pendingBatch, r.pendingLights, r.pendingShadows, r.pendingSDF, r.lightingConfig, r.swapchainExtent)
+		r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex = litSpriteBatchForLighting(r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex, r.pendingBatch, r.pendingLights, r.pendingShadows, r.pendingSDF, r.lightingConfig, r.pendingViewport)
 		r.stats.DrawCalls = r.pendingLitBatch.Stats.DrawCalls
 		r.stats.Vertices = r.pendingLitBatch.Stats.VertexCount
 		r.stats.Indices = r.pendingLitBatch.Stats.IndexCount
@@ -233,10 +236,10 @@ func (r *Renderer) SubmitOccluders(occluders []graphics.Occluder2D) error {
 	r.stats.Occluders = len(r.pendingOccluders)
 	segments := prepareOccluderSegmentsForFrame(nil, r.pendingOccluders, r.frameCamera)
 	r.pendingShadows = buildLightShadowMaps(r.pendingShadows[:0], r.pendingLights, segments, defaultShadowMapResolution)
-	r.pendingSDF = buildStaticSDFTextureFromOccluders(r.pendingSDF, r.pendingOccluders, r.frameCamera, int(r.swapchainExtent.Width), int(r.swapchainExtent.Height), defaultSDFCellSize)
+	r.pendingSDF = buildStaticSDFTextureFromOccluders(r.pendingSDF, r.pendingOccluders, r.frameCamera, int(r.pendingViewport.Width), int(r.pendingViewport.Height), defaultSDFCellSize)
 	r.sdfUpload = packSDFTexture(r.sdfUpload, r.pendingSDF)
 	if len(r.pendingBatch.Vertices) > 0 {
-		r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex = litSpriteBatchForLighting(r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex, r.pendingBatch, r.pendingLights, r.pendingShadows, r.pendingSDF, r.lightingConfig, r.swapchainExtent)
+		r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex = litSpriteBatchForLighting(r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex, r.pendingBatch, r.pendingLights, r.pendingShadows, r.pendingSDF, r.lightingConfig, r.pendingViewport)
 		r.stats.DrawCalls = r.pendingLitBatch.Stats.DrawCalls
 		r.stats.Vertices = r.pendingLitBatch.Stats.VertexCount
 		r.stats.Indices = r.pendingLitBatch.Stats.IndexCount
@@ -248,6 +251,16 @@ func (r *Renderer) SubmitOccluders(occluders []graphics.Occluder2D) error {
 func (r *Renderer) Stats() erenderer.FrameStats {
 	r.stats.Passes = erenderer.ClonePassTimings(r.passTimings)
 	return r.stats
+}
+
+func viewportExtentForBatch(batch graphics.SpriteBatch, fallback vk.Extent2D) vk.Extent2D {
+	if batch.Stats.ViewportWidth > 0 && batch.Stats.ViewportHeight > 0 {
+		return vk.Extent2D{
+			Width:  uint32(batch.Stats.ViewportWidth),
+			Height: uint32(batch.Stats.ViewportHeight),
+		}
+	}
+	return fallback
 }
 
 func (r *Renderer) EndFrame() error {

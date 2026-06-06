@@ -46,6 +46,26 @@ func TestStatsClonesPassTimingSlice(t *testing.T) {
 	}
 }
 
+func TestViewportExtentForBatchPrefersLogicalBatchViewport(t *testing.T) {
+	batch := graphics.SpriteBatch{
+		Stats: graphics.SpriteBatchStats{
+			ViewportWidth:  1920,
+			ViewportHeight: 1080,
+		},
+	}
+	got := viewportExtentForBatch(batch, vk.Extent2D{Width: 3024, Height: 1964})
+	if got.Width != 1920 || got.Height != 1080 {
+		t.Fatalf("viewport extent=%dx%d, want logical 1920x1080", got.Width, got.Height)
+	}
+}
+
+func TestViewportExtentForBatchFallsBackToSwapchainExtent(t *testing.T) {
+	got := viewportExtentForBatch(graphics.SpriteBatch{}, vk.Extent2D{Width: 3024, Height: 1964})
+	if got.Width != 3024 || got.Height != 1964 {
+		t.Fatalf("fallback extent=%dx%d, want swapchain extent", got.Width, got.Height)
+	}
+}
+
 func TestShaderFilesChangedReportsDevelopmentShaderEdits(t *testing.T) {
 	dir := t.TempDir()
 	for _, name := range []string{"quad.vert.spv", "quad.frag.spv"} {
