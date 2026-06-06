@@ -14,8 +14,16 @@ func TestRunnerStartsWithJump(t *testing.T) {
 	if !state.Started {
 		t.Fatalf("runner did not start")
 	}
-	if state.PlayerVelY >= 0 {
-		t.Fatalf("player velocity=%.2f, want upward jump in screen coordinates", state.PlayerVelY)
+	if state.PlayerVelY <= 0 {
+		t.Fatalf("player velocity=%.2f, want upward jump in renderer coordinates", state.PlayerVelY)
+	}
+}
+
+func TestRunnerStartsRunningByDefault(t *testing.T) {
+	state := newRunnerState()
+
+	if !state.Started {
+		t.Fatal("runner should start by default so the HUD score is visibly live")
 	}
 }
 
@@ -25,7 +33,7 @@ func TestRunnerJumpMovesPlayerUpThenBackToGround(t *testing.T) {
 	state.Obstacles = nil
 
 	state.Step(1.0/runnerTargetFPS, runnerInput{Jump: true})
-	if state.PlayerBottom >= runnerGroundY {
+	if state.PlayerBottom <= runnerGroundY {
 		t.Fatalf("player bottom=%.2f, want above ground %.2f after jump", state.PlayerBottom, float32(runnerGroundY))
 	}
 
@@ -82,6 +90,23 @@ func TestRunnerScoreDigitsAreLeftToRight(t *testing.T) {
 	}
 	if got := runnerScoreDigits(-1); got != [5]int{0, 0, 0, 0, 0} {
 		t.Fatalf("score digits=%v, want clamped zero", got)
+	}
+}
+
+func TestRunnerScoreHUDChangesWithScore(t *testing.T) {
+	config := defaultRunnerConfig()
+	zero := newRunnerState()
+	scored := newRunnerState()
+	scored.Score = 43
+
+	zeroSegments := scoreHUDSegmentStates(buildRunnerScene(zero, config).Sprites())
+	scoredSegments := scoreHUDSegmentStates(buildRunnerScene(scored, config).Sprites())
+
+	if len(zeroSegments) != 35 || len(scoredSegments) != 35 {
+		t.Fatalf("score HUD segment counts zero=%d scored=%d, want 35 each", len(zeroSegments), len(scoredSegments))
+	}
+	if equalBoolSlices(zeroSegments, scoredSegments) {
+		t.Fatalf("score HUD segments did not change between 00000 and 00043")
 	}
 }
 
@@ -149,4 +174,26 @@ func countRunnerLayers(sprites []graphics.SpriteDrawCommand) map[int]int {
 		counts[sprite.Layer]++
 	}
 	return counts
+}
+
+func scoreHUDSegmentStates(sprites []graphics.SpriteDrawCommand) []bool {
+	states := []bool{}
+	for _, sprite := range sprites {
+		if sprite.Layer == 22 {
+			states = append(states, sprite.Sprite.Color.R > 0.5)
+		}
+	}
+	return states
+}
+
+func equalBoolSlices(a, b []bool) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

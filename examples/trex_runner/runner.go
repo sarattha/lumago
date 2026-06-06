@@ -14,8 +14,8 @@ const (
 	runnerTargetFPS    = 60
 	runnerGroundY      = 220
 	runnerDinoX        = 210
-	runnerGravity      = 3000
-	runnerJumpVelocity = -1060
+	runnerGravity      = -3000
+	runnerJumpVelocity = 1060
 	runnerStartSpeed   = 520
 	runnerMaxSpeed     = 930
 
@@ -68,7 +68,6 @@ type runnerCloud struct {
 func newRunnerState() runnerState {
 	state := runnerState{}
 	state.Reset()
-	state.Started = false
 	return state
 }
 
@@ -128,7 +127,7 @@ func (s *runnerState) Step(dt float32, input runnerInput) {
 	}
 	s.PlayerBottom += s.PlayerVelY * dt
 	s.PlayerVelY += runnerGravity * dt
-	if s.PlayerBottom >= runnerGroundY {
+	if s.PlayerBottom <= runnerGroundY {
 		s.PlayerBottom = runnerGroundY
 		s.PlayerVelY = 0
 	}
@@ -159,7 +158,7 @@ func (s *runnerState) Step(dt float32, input runnerInput) {
 }
 
 func (s *runnerState) grounded() bool {
-	return s.PlayerBottom >= runnerGroundY-0.001 && s.PlayerVelY == 0
+	return s.PlayerBottom <= runnerGroundY+0.001 && s.PlayerVelY == 0
 }
 
 func (s *runnerState) playerRect() lmath.Rect {
