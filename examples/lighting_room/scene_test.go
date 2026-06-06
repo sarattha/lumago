@@ -1,10 +1,12 @@
 package main
 
 import (
+	"math"
 	"testing"
 
 	"github.com/sarattha/lumago/engine/app"
 	"github.com/sarattha/lumago/engine/graphics"
+	lmath "github.com/sarattha/lumago/engine/math"
 )
 
 func TestLightingRoomMatchesMVPAcceptanceTarget(t *testing.T) {
@@ -50,12 +52,99 @@ func TestLightingRoomCarriesConfiguredDebugViews(t *testing.T) {
 	}
 }
 
+func TestLightingRoomSpriteGridIsCenteredInTargetViewport(t *testing.T) {
+	config := defaultDemoConfig()
+	game := app.NewGame(app.Config{Width: config.Width, Height: config.Height})
+	world := buildLightingRoom(game, config)
+
+	min, max := spriteBounds(world.Sprites())
+	leftMargin := min.X - acceptanceTileSize/2
+	rightMargin := float32(acceptanceTargetWidth) - (max.X + acceptanceTileSize/2)
+	topMargin := min.Y - acceptanceTileSize/2
+	bottomMargin := float32(acceptanceTargetHeight) - (max.Y + acceptanceTileSize/2)
+
+	if math.Abs(float64(leftMargin-rightMargin)) > 4 {
+		t.Fatalf("horizontal margins left=%.1f right=%.1f, want centered", leftMargin, rightMargin)
+	}
+	if math.Abs(float64(topMargin-bottomMargin)) > 40 {
+		t.Fatalf("vertical margins top=%.1f bottom=%.1f, want room centered", topMargin, bottomMargin)
+	}
+}
+
+func TestLightingRoomMaterialDistributionIsSpatialNotColumnStriped(t *testing.T) {
+	for _, x := range []int{8, 16, 24, 32} {
+		seen := map[int]bool{}
+		for y := 2; y < acceptanceTileRows-2; y++ {
+			seen[roomMaterialIndex(x, y)] = true
+		}
+		if len(seen) < 2 {
+			t.Fatalf("column %d uses %d material(s), want spatially mixed room detail", x, len(seen))
+		}
+	}
+
+	for _, y := range []int{7, 13, 18} {
+		seen := map[int]bool{}
+		for x := 2; x < acceptanceTileColumns-2; x++ {
+			seen[roomMaterialIndex(x, y)] = true
+		}
+		if len(seen) < 3 {
+			t.Fatalf("row %d uses %d material(s), want floor, wall, and prop variation", y, len(seen))
+		}
+	}
+}
+
+func TestLightingRoomLightsAreInsideRoomAndOccludersAlignToRoom(t *testing.T) {
+	config := defaultDemoConfig()
+	game := app.NewGame(app.Config{Width: config.Width, Height: config.Height})
+	world := buildLightingRoom(game, config)
+
+	for i, light := range world.Lights() {
+		if light.Position.X < 300 || light.Position.X > 1620 || light.Position.Y < 130 || light.Position.Y > 960 {
+			t.Fatalf("light %d position=%+v, want inside room bounds", i, light.Position)
+		}
+	}
+
+	for i, occluder := range world.Occluders() {
+		for _, point := range occluder.Points {
+			if point.X < 270 || point.X > 1650 || point.Y < 100 || point.Y > 990 {
+				t.Fatalf("occluder %d point=%+v outside visible room bounds", i, point)
+			}
+		}
+		for _, segment := range occluder.Segments {
+			if segment.A.X < 270 || segment.B.X > 1650 || segment.A.Y < 100 || segment.B.Y > 990 {
+				t.Fatalf("occluder %d segment=%+v outside visible room bounds", i, segment)
+			}
+		}
+	}
+}
+
 func countMaterials(sprites []graphics.SpriteDrawCommand) int {
 	seen := map[graphics.Material2D]bool{}
 	for _, sprite := range sprites {
 		seen[sprite.Sprite.Material] = true
 	}
 	return len(seen)
+}
+
+func spriteBounds(sprites []graphics.SpriteDrawCommand) (lmath.Vec2, lmath.Vec2) {
+	min := lmath.Vec2{X: float32(acceptanceTargetWidth), Y: float32(acceptanceTargetHeight)}
+	max := lmath.Vec2{}
+	for _, sprite := range sprites {
+		position := sprite.Transform.Position
+		if position.X < min.X {
+			min.X = position.X
+		}
+		if position.Y < min.Y {
+			min.Y = position.Y
+		}
+		if position.X > max.X {
+			max.X = position.X
+		}
+		if position.Y > max.Y {
+			max.Y = position.Y
+		}
+	}
+	return min, max
 }
 
 func countShadowLights(lights []graphics.Light2D) int {

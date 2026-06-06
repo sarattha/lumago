@@ -21,9 +21,9 @@ const (
 	acceptanceTileColumns  = 40
 	acceptanceTileRows     = 25
 	acceptanceTileSize     = 32
-	acceptanceTileSpacing  = 38
-	acceptanceOriginX      = 220
-	acceptanceOriginY      = 120
+	acceptanceTileSpacing  = 34
+	acceptanceOriginX      = 297
+	acceptanceOriginY      = 132
 )
 
 func buildLightingRoom(game *app.Game, config demoConfig) *scene.Scene {
@@ -48,16 +48,15 @@ func buildLightingRoom(game *app.Game, config demoConfig) *scene.Scene {
 
 func addAcceptanceSprites(world *scene.Scene, materials []graphics.Material2D) {
 	palette := []lmath.Color{
-		{R: 0.72, G: 0.76, B: 0.68, A: 1},
-		{R: 0.54, G: 0.58, B: 0.64, A: 1},
-		{R: 0.93, G: 0.78, B: 0.58, A: 1},
-		{R: 0.48, G: 0.82, B: 0.75, A: 1},
+		{R: 0.54, G: 0.62, B: 0.58, A: 1}, // floor
+		{R: 0.36, G: 0.43, B: 0.47, A: 1}, // wall
+		{R: 0.86, G: 0.66, B: 0.42, A: 1}, // warm props
+		{R: 0.42, G: 0.74, B: 0.58, A: 1}, // cool props/accent floor
 	}
 	for y := 0; y < acceptanceTileRows; y++ {
 		for x := 0; x < acceptanceTileColumns; x++ {
-			index := y*acceptanceTileColumns + x
-			materialIndex := index % len(materials)
-			jitter := float32((x*y)%7) * 0.01
+			materialIndex := roomMaterialIndex(x, y)
+			jitter := tileJitter(x, y)
 			addSprite(
 				world,
 				materials[materialIndex],
@@ -76,6 +75,40 @@ func addAcceptanceSprites(world *scene.Scene, materials []graphics.Material2D) {
 			)
 		}
 	}
+}
+
+func roomMaterialIndex(x, y int) int {
+	if isWallTile(x, y) {
+		return 1
+	}
+	if inRectTile(x, y, 7, 7, 6, 3) ||
+		inRectTile(x, y, 27, 16, 6, 4) ||
+		inRectTile(x, y, 18, 10, 4, 5) ||
+		inRectTile(x, y, 4, 18, 5, 3) {
+		return 2
+	}
+	if inRectTile(x, y, 13, 15, 7, 4) ||
+		inRectTile(x, y, 24, 6, 5, 3) ||
+		((x+y)%9 == 0 && x > 3 && x < acceptanceTileColumns-4 && y > 3 && y < acceptanceTileRows-3) {
+		return 3
+	}
+	return 0
+}
+
+func isWallTile(x, y int) bool {
+	return x == 0 || y == 0 || x == acceptanceTileColumns-1 || y == acceptanceTileRows-1 ||
+		(y == 4 && x > 4 && x < 16) ||
+		(y == 4 && x > 24 && x < 36) ||
+		(x == 12 && y > 4 && y < 13) ||
+		(x == 28 && y > 11 && y < 20)
+}
+
+func inRectTile(x, y, left, top, width, height int) bool {
+	return x >= left && x < left+width && y >= top && y < top+height
+}
+
+func tileJitter(x, y int) float32 {
+	return float32((x*3+y*5)%6) * 0.008
 }
 
 func material(game *app.Game, name string, roughness, emissive float32) graphics.Material2D {
@@ -121,31 +154,31 @@ func shadowLight(x, y, radius float32, color lmath.Color, intensity float32) gra
 
 func updateLights(world *scene.Scene, t float32) {
 	world.SetLights([]graphics.Light2D{
-		shadowLight(560+130*float32(math.Sin(float64(t*1.1))), 260+90*float32(math.Cos(float64(t*0.8))), 460, lmath.Color{R: 1.00, G: 0.78, B: 0.45, A: 1}, 1.9),
-		shadowLight(1210+160*float32(math.Cos(float64(t*0.9))), 360+95*float32(math.Sin(float64(t*1.4))), 420, lmath.Color{R: 0.45, G: 0.68, B: 1.00, A: 1}, 1.4),
-		light(820+120*float32(math.Sin(float64(t*1.7))), 790+70*float32(math.Sin(float64(t*0.7))), 360, lmath.Color{R: 0.85, G: 0.42, B: 1.00, A: 1}, 1.1),
-		light(1480+150*float32(math.Cos(float64(t*0.6))), 780+90*float32(math.Sin(float64(t*1.2))), 500, lmath.Color{R: 0.55, G: 1.00, B: 0.70, A: 1}, 1.2),
+		shadowLight(610+90*float32(math.Sin(float64(t*1.1))), 360+65*float32(math.Cos(float64(t*0.8))), 430, lmath.Color{R: 1.00, G: 0.76, B: 0.46, A: 1}, 1.9),
+		shadowLight(1300+120*float32(math.Cos(float64(t*0.9))), 430+75*float32(math.Sin(float64(t*1.4))), 460, lmath.Color{R: 0.44, G: 0.66, B: 1.00, A: 1}, 1.5),
+		light(880+90*float32(math.Sin(float64(t*1.7))), 790+55*float32(math.Sin(float64(t*0.7))), 390, lmath.Color{R: 0.84, G: 0.44, B: 1.00, A: 1}, 1.1),
+		light(1510+95*float32(math.Cos(float64(t*0.6))), 760+70*float32(math.Sin(float64(t*1.2))), 420, lmath.Color{R: 0.54, G: 1.00, B: 0.70, A: 1}, 1.2),
 	})
 }
 
 func addAcceptanceOccluders(world *scene.Scene) {
 	rects := []lmath.Rect{
-		{X: 420, Y: 210, W: 260, H: 20},
-		{X: 420, Y: 420, W: 260, H: 20},
-		{X: 420, Y: 210, W: 20, H: 230},
-		{X: 660, Y: 210, W: 20, H: 230},
-		{X: 900, Y: 260, W: 260, H: 22},
-		{X: 900, Y: 520, W: 260, H: 22},
-		{X: 900, Y: 260, W: 22, H: 282},
-		{X: 1138, Y: 260, W: 22, H: 282},
-		{X: 1260, Y: 700, W: 220, H: 22},
-		{X: 500, Y: 740, W: 240, H: 20},
-		{X: 760, Y: 680, W: 22, H: 150},
-		{X: 1520, Y: 340, W: 24, H: 190},
-		{X: 300, Y: 600, W: 180, H: 18},
-		{X: 1420, Y: 160, W: 160, H: 18},
-		{X: 700, Y: 500, W: 96, H: 96},
-		{X: 1180, Y: 620, W: 90, H: 120},
+		{X: 280, Y: 114, W: 1360, H: 22},
+		{X: 280, Y: 948, W: 1360, H: 22},
+		{X: 280, Y: 114, W: 22, H: 856},
+		{X: 1618, Y: 114, W: 22, H: 856},
+		{X: 470, Y: 264, W: 360, H: 22},
+		{X: 1120, Y: 264, W: 370, H: 22},
+		{X: 688, Y: 286, W: 22, H: 270},
+		{X: 1232, Y: 522, W: 22, H: 306},
+		{X: 520, Y: 366, W: 200, H: 92},
+		{X: 1210, Y: 674, W: 230, H: 126},
+		{X: 910, Y: 468, W: 128, H: 188},
+		{X: 430, Y: 760, W: 190, H: 90},
+		{X: 750, Y: 676, W: 250, H: 22},
+		{X: 1340, Y: 330, W: 220, H: 22},
+		{X: 620, Y: 620, W: 96, H: 96},
+		{X: 1440, Y: 760, W: 96, H: 96},
 	}
 	for i, rect := range rects {
 		occluder := graphics.RectOccluder2D(rect, 1)
@@ -156,10 +189,10 @@ func addAcceptanceOccluders(world *scene.Scene) {
 	}
 
 	segments := []graphics.Segment2D{
-		{A: lmath.Vec2{X: 340, Y: 340}, B: lmath.Vec2{X: 460, Y: 470}},
-		{A: lmath.Vec2{X: 760, Y: 320}, B: lmath.Vec2{X: 900, Y: 450}},
-		{A: lmath.Vec2{X: 1020, Y: 820}, B: lmath.Vec2{X: 1180, Y: 950}},
-		{A: lmath.Vec2{X: 1520, Y: 650}, B: lmath.Vec2{X: 1680, Y: 820}},
+		{A: lmath.Vec2{X: 382, Y: 308}, B: lmath.Vec2{X: 510, Y: 438}},
+		{A: lmath.Vec2{X: 760, Y: 380}, B: lmath.Vec2{X: 910, Y: 520}},
+		{A: lmath.Vec2{X: 1030, Y: 800}, B: lmath.Vec2{X: 1210, Y: 924}},
+		{A: lmath.Vec2{X: 1450, Y: 540}, B: lmath.Vec2{X: 1585, Y: 700}},
 	}
 	for _, segment := range segments {
 		world.AddOccluder(graphics.SegmentOccluder2D(segment.A, segment.B, 1))
