@@ -35,17 +35,17 @@
   <section>
     <h2>Execution Checklist</h2>
     <ul>
-      <li><label><input type="checkbox">Add a frame timing overlay with CPU frame time and GPU timing when available.</label></li>
-      <li><label><input type="checkbox">Add draw call, sprite, light, and occluder counters.</label></li>
-      <li><label><input type="checkbox">Extend the Vulkan shim only for required timing markers, debug labels, and runtime diagnostic toggles.</label></li>
-      <li><label><input type="checkbox">Add GPU timing markers around color, normal, shadow, light, SDF, and composite passes.</label></li>
-      <li><label><input type="checkbox">Add memory allocation checks for the render hot path.</label></li>
-      <li><label><input type="checkbox">Add development shader reload support for edited shader files.</label></li>
-      <li><label><input type="checkbox">Add a basic config file for window size, renderer mode, debug view, and development toggles.</label></li>
-      <li><label><input type="checkbox">Finalize the lighting_room demo with 1,000 sprites, 4 materials, 4 lights, 2 shadow-casting lights, and 20 occluders.</label></li>
-      <li><label><input type="checkbox">Validate debug views for color, normal, light, shadow, and SDF.</label></li>
-      <li><label><input type="checkbox">Document MVP runtime requirements and demo launch instructions.</label></li>
-      <li><label><input type="checkbox">Update the roadmap checklist to reflect completed MVP work.</label></li>
+      <li><label><input type="checkbox" checked>Add a frame timing overlay with CPU frame time and GPU timing when available.</label></li>
+      <li><label><input type="checkbox" checked>Add draw call, sprite, light, and occluder counters.</label></li>
+      <li><label><input type="checkbox" checked>Extend the Vulkan shim only for required timing markers, debug labels, and runtime diagnostic toggles.</label></li>
+      <li><label><input type="checkbox" checked>Add GPU timing markers around color, normal, shadow, light, SDF, and composite passes.</label></li>
+      <li><label><input type="checkbox" checked>Add memory allocation checks for the render hot path.</label></li>
+      <li><label><input type="checkbox" checked>Add development shader reload support for edited shader files.</label></li>
+      <li><label><input type="checkbox" checked>Add a basic config file for window size, renderer mode, debug view, and development toggles.</label></li>
+      <li><label><input type="checkbox" checked>Finalize the lighting_room demo with 1,000 sprites, 4 materials, 4 lights, 2 shadow-casting lights, and 20 occluders.</label></li>
+      <li><label><input type="checkbox" checked>Validate debug views for color, normal, light, shadow, and SDF.</label></li>
+      <li><label><input type="checkbox" checked>Document MVP runtime requirements and demo launch instructions.</label></li>
+      <li><label><input type="checkbox" checked>Update the roadmap checklist to reflect completed MVP work.</label></li>
     </ul>
   </section>
 
@@ -53,20 +53,20 @@
     <div>
       <h2>Acceptance Checklist</h2>
       <ul>
-        <li><label><input type="checkbox">The demo targets 1080p at 60 FPS on a mid-range desktop GPU.</label></li>
-        <li><label><input type="checkbox">Frame timing and draw counts are visible in debug overlay.</label></li>
-        <li><label><input type="checkbox">Per-frame allocation in the render hot path is minimal and measured.</label></li>
-        <li><label><input type="checkbox">Debug views cover color, normal, light, shadow, and SDF outputs.</label></li>
-        <li><label><input type="checkbox">The demo scene matches the documented MVP acceptance target.</label></li>
+        <li><label><input type="checkbox" checked>The demo targets 1080p at 60 FPS on a mid-range desktop GPU.</label></li>
+        <li><label><input type="checkbox" checked>Frame timing and draw counts are visible in debug overlay.</label></li>
+        <li><label><input type="checkbox" checked>Per-frame allocation in the render hot path is minimal and measured.</label></li>
+        <li><label><input type="checkbox" checked>Debug views cover color, normal, light, shadow, and SDF outputs.</label></li>
+        <li><label><input type="checkbox" checked>The demo scene matches the documented MVP acceptance target.</label></li>
       </ul>
     </div>
     <div>
       <h2>Verification</h2>
       <ul>
-        <li><label><input type="checkbox">Run gofmt on edited Go files.</label></li>
-        <li><label><input type="checkbox">Run go test ./...</label></li>
-        <li><label><input type="checkbox">Run go vet ./...</label></li>
-        <li><label><input type="checkbox">Run the final lighting_room demo and record observed FPS and allocation metrics.</label></li>
+        <li><label><input type="checkbox" checked>Run gofmt on edited Go files.</label></li>
+        <li><label><input type="checkbox" checked>Run go test ./...</label></li>
+        <li><label><input type="checkbox" checked>Run go vet ./...</label></li>
+        <li><label><input type="checkbox" checked>Run the final lighting_room demo and record observed FPS and allocation metrics.</label></li>
       </ul>
     </div>
   </section>

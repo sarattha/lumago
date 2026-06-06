@@ -13,16 +13,16 @@ Goal: create the minimum desktop runtime that opens a window and renders one tex
 
 Checklist:
 
-- [ ] Create desktop window
-- [ ] Create Vulkan instance
-- [ ] Select physical device
-- [ ] Create logical device
-- [ ] Create swapchain
-- [ ] Create command buffers
-- [ ] Create synchronization objects
-- [ ] Render one textured quad
+- [x] Create desktop window
+- [x] Create Vulkan instance
+- [x] Select physical device
+- [x] Create logical device
+- [x] Create swapchain
+- [x] Create command buffers
+- [x] Create synchronization objects
+- [x] Render one textured quad
 - [ ] Capture frame in RenderDoc
-- [ ] Isolate required Vulkan/MoltenVK calls behind the internal shim
+- [x] Isolate required Vulkan/MoltenVK calls behind the internal shim
 
 ## Phase 1 — Sprite Engine and Batching
 
@@ -30,15 +30,15 @@ Goal: let Go handle sprites, animation, transforms, camera, layer sorting, and b
 
 Checklist:
 
-- [ ] Texture loader
-- [ ] Texture atlas
-- [ ] Sprite command buffer
-- [ ] Instance buffer
-- [ ] Layer sorting
-- [ ] Camera transform
-- [ ] Batch rendering
-- [ ] 1,000+ sprite demo
-- [ ] Extend the Vulkan shim only for texture upload, descriptor, buffer, and draw calls needed by batching
+- [x] Texture loader
+- [x] Texture atlas
+- [x] Sprite command buffer
+- [x] Instance buffer
+- [x] Layer sorting
+- [x] Camera transform
+- [x] Batch rendering
+- [x] 1,000+ sprite demo
+- [x] Extend the Vulkan shim only for texture upload, descriptor, buffer, and draw calls needed by batching
 
 ## Phase 2 — Normal-Mapped 2D Lighting
 
@@ -46,15 +46,15 @@ Goal: sprites react to dynamic lights using normal maps.
 
 Checklist:
 
-- [ ] Material supports albedo + normal textures
-- [ ] Scene color render target
-- [ ] Scene normal render target
-- [ ] Light buffer render target
-- [ ] Point light shader
-- [ ] Ambient light
-- [ ] Final composite pass
-- [ ] Normal debug view
-- [ ] Extend the Vulkan shim only for render targets, descriptors, pipeline state, and pass transitions needed by lighting
+- [x] Material supports albedo + normal textures
+- [x] Scene color render target
+- [x] Scene normal render target
+- [x] Light buffer render target
+- [x] Point light shader
+- [x] Ambient light
+- [x] Final composite pass
+- [x] Normal debug view
+- [x] Extend the Vulkan shim only for render targets, descriptors, pipeline state, and pass transitions needed by lighting
 
 ## Phase 3 — Per-Light 2D Shadow Maps
 
@@ -62,14 +62,14 @@ Goal: lights are blocked by 2D occluders.
 
 Checklist:
 
-- [ ] Occluder component
-- [ ] Segment extraction
-- [ ] Nearby occluder culling
-- [ ] Per-light shadow texture
-- [ ] Shadow lookup in light shader
-- [ ] Hard shadows
-- [ ] Debug shadow visualization
-- [ ] Extend the Vulkan shim only for shadow textures, shadow pass resources, and shader inputs needed by hard shadows
+- [x] Occluder component
+- [x] Segment extraction
+- [x] Nearby occluder culling
+- [x] Per-light shadow texture
+- [x] Shadow lookup in light shader
+- [x] Hard shadows
+- [x] Debug shadow visualization
+- [x] Extend the Vulkan shim only for shadow textures, shadow pass resources, and shader inputs needed by hard shadows
 
 ## Phase 4 — SDF-Based Experimental Shadows
 
@@ -77,13 +77,13 @@ Goal: use signed distance fields to create soft, stylized 2D shadows.
 
 Checklist:
 
-- [ ] Generate static SDF from level geometry
-- [ ] Upload SDF texture
-- [ ] Raymarch from light to pixel
-- [ ] Render soft shadow factor
-- [ ] Compare with shadow-map mode
-- [ ] Debug SDF view
-- [ ] Extend the Vulkan shim only for SDF texture upload, sampling, and debug rendering
+- [x] Generate static SDF from level geometry
+- [x] Upload SDF texture
+- [x] Raymarch from light to pixel
+- [x] Render soft shadow factor
+- [x] Compare with shadow-map mode
+- [x] Debug SDF view
+- [x] Extend the Vulkan shim only for SDF texture upload, sampling, and debug rendering
 
 ## Phase 5 — Polish and Performance
 
@@ -91,12 +91,12 @@ Goal: make the MVP stable, measurable, and testable.
 
 Checklist:
 
-- [ ] Frame timing overlay
-- [ ] Draw call counter
-- [ ] Sprite counter
-- [ ] Light counter
-- [ ] GPU timing markers
-- [ ] Memory allocation checks
-- [ ] Shader reload in development mode
-- [ ] Basic config file
-- [ ] Extend the Vulkan shim only for timing markers, debug labels, and runtime toggles needed by measurement
+- [x] Frame timing overlay
+- [x] Draw call counter
+- [x] Sprite counter
+- [x] Light counter
+- [x] GPU timing markers
+- [x] Memory allocation checks
+- [x] Shader reload in development mode
+- [x] Basic config file
+- [x] Extend the Vulkan shim only for timing markers, debug labels, and runtime toggles needed by measurement

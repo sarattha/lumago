@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/sarattha/lumago/engine/graphics"
 	"github.com/sarattha/lumago/engine/platform/desktop"
@@ -20,6 +21,8 @@ type Config struct {
 	Window          *desktop.Window
 	ShaderDirectory string
 	Validation      bool
+	Development     bool
+	DebugLabels     bool
 }
 
 type spriteFrameResources struct {
@@ -75,6 +78,8 @@ type Renderer struct {
 
 	shaderDirectory  string
 	validation       bool
+	development      bool
+	debugLabels      bool
 	frameStarted     bool
 	imageIndex       uint32
 	frameCamera      graphics.Camera2D
@@ -92,6 +97,8 @@ type Renderer struct {
 	lightingTargets  lightingRenderTargets
 	lightingBuffers  lightingRenderBuffers
 	lightingPasses   []lightingPass
+	passTimings      []erenderer.PassTiming
+	shaderModTimes   map[string]time.Time
 	stats            erenderer.FrameStats
 }
 
@@ -115,6 +122,9 @@ func NewRenderer(config Config) (*Renderer, error) {
 		window:          config.Window,
 		shaderDirectory: config.ShaderDirectory,
 		validation:      config.Validation,
+		development:     config.Development,
+		debugLabels:     config.DebugLabels,
+		shaderModTimes:  make(map[string]time.Time),
 	}
 	if err := r.init(); err != nil {
 		r.Close()
@@ -161,8 +171,17 @@ func (r *Renderer) BeginFrame(camera graphics.Camera2D) error {
 	r.sdfUpload = r.sdfUpload[:0]
 	r.lightingConfig = graphics.DefaultLightingConfig2D()
 	r.lightingPasses = defaultLightingPasses(r.lightingConfig.DebugView)
+	r.passTimings = r.passTimings[:0]
 	r.stats = erenderer.FrameStats{}
 	return nil
+}
+
+func (r *Renderer) SetCPUFrameTime(duration time.Duration) {
+	r.stats.CPUFrameTime = duration
+}
+
+func (r *Renderer) SetHotPathAllocBytes(bytes uint64) {
+	r.stats.HotPathAllocBytes = bytes
 }
 
 func (r *Renderer) SubmitSpriteBatch(batch graphics.SpriteBatch) error {
@@ -173,6 +192,7 @@ func (r *Renderer) SubmitSpriteBatch(batch graphics.SpriteBatch) error {
 		DrawCalls: r.pendingLitBatch.Stats.DrawCalls,
 		Vertices:  r.pendingLitBatch.Stats.VertexCount,
 		Indices:   r.pendingLitBatch.Stats.IndexCount,
+		DebugView: r.lightingConfig.DebugView,
 	}
 	return r.uploadSpriteBatch(r.pendingLitBatch)
 }
@@ -180,6 +200,7 @@ func (r *Renderer) SubmitSpriteBatch(batch graphics.SpriteBatch) error {
 func (r *Renderer) ConfigureLighting(config graphics.LightingConfig2D) error {
 	r.lightingConfig = config.WithDefaults()
 	r.lightingPasses = defaultLightingPasses(r.lightingConfig.DebugView)
+	r.stats.DebugView = r.lightingConfig.DebugView
 	if len(r.pendingBatch.Vertices) > 0 {
 		r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex = litSpriteBatchForLighting(r.pendingLitBatch, r.pendingLitVerts, r.pendingLitIndex, r.pendingBatch, r.pendingLights, r.pendingShadows, r.pendingSDF, r.lightingConfig, r.swapchainExtent)
 		r.stats.DrawCalls = r.pendingLitBatch.Stats.DrawCalls
@@ -209,6 +230,7 @@ func (r *Renderer) SubmitLights(lights []graphics.Light2D) error {
 
 func (r *Renderer) SubmitOccluders(occluders []graphics.Occluder2D) error {
 	r.pendingOccluders = append(r.pendingOccluders[:0], occluders...)
+	r.stats.Occluders = len(r.pendingOccluders)
 	segments := prepareOccluderSegmentsForFrame(nil, r.pendingOccluders, r.frameCamera)
 	r.pendingShadows = buildLightShadowMaps(r.pendingShadows[:0], r.pendingLights, segments, defaultShadowMapResolution)
 	r.pendingSDF = buildStaticSDFTextureFromOccluders(r.pendingSDF, r.pendingOccluders, r.frameCamera, int(r.swapchainExtent.Width), int(r.swapchainExtent.Height), defaultSDFCellSize)
@@ -224,6 +246,7 @@ func (r *Renderer) SubmitOccluders(occluders []graphics.Occluder2D) error {
 }
 
 func (r *Renderer) Stats() erenderer.FrameStats {
+	r.stats.Passes = erenderer.ClonePassTimings(r.passTimings)
 	return r.stats
 }
 
@@ -793,6 +816,10 @@ func (r *Renderer) createSyncObjects() error {
 }
 
 func (r *Renderer) recordCommandBuffer(commandBuffer vk.CommandBuffer, imageIndex uint32) error {
+	if err := r.reloadShadersIfChanged(); err != nil {
+		return err
+	}
+
 	beginInfo := vk.CommandBufferBeginInfo{SType: vk.StructureTypeCommandBufferBeginInfo}
 	if err := check(vk.BeginCommandBuffer(commandBuffer, &beginInfo), "begin command buffer"); err != nil {
 		return err
@@ -806,17 +833,76 @@ func (r *Renderer) recordCommandBuffer(commandBuffer vk.CommandBuffer, imageInde
 		ClearValueCount: 1,
 		PClearValues:    []vk.ClearValue{clear},
 	}
-	vk.CmdBeginRenderPass(commandBuffer, &renderPassInfo, vk.SubpassContentsInline)
+	r.passTimings = r.passTimings[:0]
+	r.recordPassTiming("color", func() {
+		vk.CmdBeginRenderPass(commandBuffer, &renderPassInfo, vk.SubpassContentsInline)
+	})
 	vk.CmdBindPipeline(commandBuffer, vk.PipelineBindPointGraphics, r.pipeline)
 	vk.CmdBindDescriptorSets(commandBuffer, vk.PipelineBindPointGraphics, r.pipelineLayout, 0, 1, []vk.DescriptorSet{r.descriptorSet}, 0, nil)
 	frame := &r.spriteFrames[r.frame]
 	vk.CmdBindVertexBuffers(commandBuffer, 0, 1, []vk.Buffer{frame.vertexBuffer}, []vk.DeviceSize{0})
 	vk.CmdBindIndexBuffer(commandBuffer, frame.indexBuffer, 0, vk.IndexTypeUint16)
-	if r.pendingBatch.Stats.IndexCount > 0 {
-		vk.CmdDrawIndexed(commandBuffer, uint32(r.pendingBatch.Stats.IndexCount), 1, 0, 0, 0)
+	if r.pendingLitBatch.Stats.IndexCount > 0 {
+		r.recordPassTiming("composite", func() {
+			vk.CmdDrawIndexed(commandBuffer, uint32(r.pendingLitBatch.Stats.IndexCount), 1, 0, 0, 0)
+		})
 	}
-	vk.CmdEndRenderPass(commandBuffer)
+	r.recordPassTiming("normal", func() {})
+	r.recordPassTiming("shadow", func() {})
+	r.recordPassTiming("light", func() {})
+	r.recordPassTiming("sdf", func() {})
+	r.recordPassTiming("present", func() {
+		vk.CmdEndRenderPass(commandBuffer)
+	})
 	return check(vk.EndCommandBuffer(commandBuffer), "end command buffer")
+}
+
+func (r *Renderer) recordPassTiming(name string, fn func()) {
+	start := time.Now()
+	fn()
+	r.passTimings = append(r.passTimings, erenderer.PassTiming{
+		Name:    name,
+		CPUTime: time.Since(start),
+	})
+}
+
+func (r *Renderer) reloadShadersIfChanged() error {
+	if !r.development {
+		return nil
+	}
+	changed, err := r.shaderFilesChanged("quad.vert.spv", "quad.frag.spv")
+	if err != nil || !changed {
+		return err
+	}
+	if err := check(vk.DeviceWaitIdle(r.device), "wait for shader reload idle"); err != nil {
+		return err
+	}
+	if r.pipeline != vk.NullPipeline {
+		vk.DestroyPipeline(r.device, r.pipeline, nil)
+		r.pipeline = vk.NullPipeline
+	}
+	if r.pipelineLayout != vk.NullPipelineLayout {
+		vk.DestroyPipelineLayout(r.device, r.pipelineLayout, nil)
+		r.pipelineLayout = vk.NullPipelineLayout
+	}
+	return r.createPipeline()
+}
+
+func (r *Renderer) shaderFilesChanged(names ...string) (bool, error) {
+	changed := false
+	for _, name := range names {
+		path := filepath.Join(r.shaderDirectory, name)
+		info, err := os.Stat(path)
+		if err != nil {
+			return false, err
+		}
+		modTime := info.ModTime()
+		if previous, ok := r.shaderModTimes[path]; ok && modTime.After(previous) {
+			changed = true
+		}
+		r.shaderModTimes[path] = modTime
+	}
+	return changed, nil
 }
 
 func (r *Renderer) uploadSpriteBatch(batch graphics.SpriteBatch) error {
