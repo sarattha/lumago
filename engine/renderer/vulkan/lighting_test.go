@@ -181,6 +181,134 @@ func TestLitSpriteBatchForLightingSamplesRegisteredNormalMaps(t *testing.T) {
 	}
 }
 
+func TestLitSpriteBatchForLightingSamplesRegisteredAlbedoTextures(t *testing.T) {
+	albedo := graphics.TextureID(9010)
+	graphics.RegisterTextureData(graphics.TextureData{
+		ID:     albedo,
+		Width:  1,
+		Height: 1,
+		Pixels: []lmath.Color{{R: 0.25, G: 0.5, B: 0.75, A: 1}},
+	})
+	batch := normalizedTexturedSpriteBatch(graphics.Material2D{Albedo: albedo})
+	config := graphics.LightingConfig2D{
+		Ambient:   lmath.White(),
+		DebugView: graphics.DebugViewSceneColor,
+	}
+
+	lit, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, batch, nil, nil, sdfTexture{}, config, vk.Extent2D{Width: 100, Height: 100})
+
+	if got := lit.Vertices[0].Color; got.R != 0.25 || got.G != 0.5 || got.B != 0.75 || got.A != 1 {
+		t.Fatalf("albedo vertex color=%+v, want registered texture color", got)
+	}
+}
+
+func TestLitSpriteBatchForLightingKeepsTexturedSpritesTexelSharp(t *testing.T) {
+	albedo := graphics.TextureID(9020)
+	graphics.RegisterTextureData(graphics.TextureData{
+		ID:     albedo,
+		Width:  2,
+		Height: 2,
+		Pixels: []lmath.Color{
+			{R: 1, G: 0, B: 0, A: 1},
+			{R: 0, G: 1, B: 0, A: 1},
+			{R: 0, G: 0, B: 1, A: 1},
+			{R: 1, G: 1, B: 1, A: 1},
+		},
+	})
+	batch := normalizedTexturedSpriteBatch(graphics.Material2D{Albedo: albedo})
+	config := graphics.LightingConfig2D{
+		Ambient:   lmath.White(),
+		DebugView: graphics.DebugViewSceneColor,
+	}
+
+	lit, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, batch, nil, nil, sdfTexture{}, config, vk.Extent2D{Width: 100, Height: 100})
+
+	if lit.Stats.VertexCount != 16 || lit.Stats.IndexCount != 24 {
+		t.Fatalf("texel-sharp geometry vertices=%d indices=%d, want 16/24 for four texels", lit.Stats.VertexCount, lit.Stats.IndexCount)
+	}
+	for cell := 0; cell < 4; cell++ {
+		first := lit.Vertices[cell*4].Color
+		for i := 1; i < 4; i++ {
+			if got := lit.Vertices[cell*4+i].Color; got != first {
+				t.Fatalf("cell %d vertex %d color=%+v, want constant texel color %+v", cell, i, got, first)
+			}
+		}
+	}
+	seen := map[lmath.Color]bool{}
+	for cell := 0; cell < 4; cell++ {
+		seen[lit.Vertices[cell*4].Color] = true
+	}
+	for _, color := range []lmath.Color{
+		{R: 1, G: 0, B: 0, A: 1},
+		{R: 0, G: 1, B: 0, A: 1},
+		{R: 0, G: 0, B: 1, A: 1},
+		{R: 1, G: 1, B: 1, A: 1},
+	} {
+		if !seen[color] {
+			t.Fatalf("missing preserved texel color %+v from first vertices=%+v %+v %+v %+v", color, lit.Vertices[0].Color, lit.Vertices[4].Color, lit.Vertices[8].Color, lit.Vertices[12].Color)
+		}
+	}
+	if len(seen) != 4 {
+		t.Fatalf("texel colors were not preserved: first vertices=%+v %+v %+v %+v", lit.Vertices[0].Color, lit.Vertices[4].Color, lit.Vertices[8].Color, lit.Vertices[12].Color)
+	}
+}
+
+func TestLitSpriteBatchForLightingSkipsTransparentTexels(t *testing.T) {
+	albedo := graphics.TextureID(9021)
+	graphics.RegisterTextureData(graphics.TextureData{
+		ID:     albedo,
+		Width:  2,
+		Height: 2,
+		Pixels: []lmath.Color{
+			{R: 1, A: 1},
+			{G: 1, A: 0},
+			{B: 1, A: 1},
+			{R: 1, G: 1, B: 1, A: 1},
+		},
+	})
+	batch := normalizedTexturedSpriteBatch(graphics.Material2D{Albedo: albedo})
+	config := graphics.LightingConfig2D{
+		Ambient:   lmath.White(),
+		DebugView: graphics.DebugViewSceneColor,
+	}
+
+	lit, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, batch, nil, nil, sdfTexture{}, config, vk.Extent2D{Width: 100, Height: 100})
+
+	if lit.Stats.VertexCount != 12 || lit.Stats.IndexCount != 18 {
+		t.Fatalf("transparent texel geometry vertices=%d indices=%d, want 12/18 for three visible texels", lit.Stats.VertexCount, lit.Stats.IndexCount)
+	}
+	for _, vertex := range lit.Vertices {
+		if vertex.Color.A <= transparentTexelCutoff {
+			t.Fatalf("transparent texel was emitted: %+v", vertex.Color)
+		}
+	}
+}
+
+func TestLitSpriteBatchForLightingFallsBackForLargeTextures(t *testing.T) {
+	albedo := graphics.TextureID(9022)
+	pixels := make([]lmath.Color, maxLitSpriteTexelCells+1)
+	for i := range pixels {
+		pixels[i] = lmath.White()
+	}
+	graphics.RegisterTextureData(graphics.TextureData{
+		ID:     albedo,
+		Width:  maxLitSpriteTexelCells + 1,
+		Height: 1,
+		Pixels: pixels,
+	})
+	batch := normalizedTexturedSpriteBatch(graphics.Material2D{Albedo: albedo})
+	config := graphics.LightingConfig2D{
+		Ambient:   lmath.White(),
+		DebugView: graphics.DebugViewSceneColor,
+	}
+
+	lit, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, batch, nil, nil, sdfTexture{}, config, vk.Extent2D{Width: 100, Height: 100})
+
+	if lit.Stats.VertexCount != litSpriteVertexCount() || lit.Stats.IndexCount != litSpriteIndexCount() {
+		t.Fatalf("large texture geometry vertices=%d indices=%d, want fixed grid %d/%d", lit.Stats.VertexCount, lit.Stats.IndexCount, litSpriteVertexCount(), litSpriteIndexCount())
+	}
+}
+
 func TestLitSpriteBatchForLightingAppliesShadowMaps(t *testing.T) {
 	batch := singleSpriteBatch(graphics.Material2D{})
 	lights := []graphics.Light2D{
@@ -279,6 +407,24 @@ func singleSpriteBatch(material graphics.Material2D) graphics.SpriteBatch {
 			Transform: graphics.Transform2D{
 				Position: lmath.Vec2{X: 50, Y: 50},
 				Scale:    lmath.Vec2{X: 1, Y: 1},
+			},
+		},
+	}, graphics.DefaultCamera2D(), 100, 100)
+	return batch
+}
+
+func normalizedTexturedSpriteBatch(material graphics.Material2D) graphics.SpriteBatch {
+	var batch graphics.SpriteBatch
+	batch.Build([]graphics.SpriteDrawCommand{
+		{
+			Sprite: graphics.Sprite{
+				Material: material,
+				Src:      lmath.Rect{W: 1, H: 1},
+				Color:    lmath.White(),
+			},
+			Transform: graphics.Transform2D{
+				Position: lmath.Vec2{X: 50, Y: 50},
+				Scale:    lmath.Vec2{X: 20, Y: 20},
 			},
 		},
 	}, graphics.DefaultCamera2D(), 100, 100)

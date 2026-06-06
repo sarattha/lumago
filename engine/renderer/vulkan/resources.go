@@ -523,23 +523,23 @@ func packSpriteVertices(data []byte, vertices []graphics.SpriteVertex) []byte {
 	return data
 }
 
-func spriteIndexBytes(indices []uint16) []byte {
+func spriteIndexBytes(indices []uint32) []byte {
 	return packSpriteIndices(nil, indices)
 }
 
-func packSpriteIndices(data []byte, indices []uint16) []byte {
-	size := len(indices) * 2
+func packSpriteIndices(data []byte, indices []uint32) []byte {
+	size := len(indices) * 4
 	if cap(data) < size {
 		data = make([]byte, size)
 	} else {
 		data = data[:size]
 	}
 	for i, index := range indices {
-		binary.LittleEndian.PutUint16(data[i*2:], index)
+		binary.LittleEndian.PutUint32(data[i*4:], index)
 	}
 	return data
 }
 
 func quadIndexBytes() []byte {
-	return spriteIndexBytes([]uint16{0, 1, 2, 2, 3, 0})
+	return spriteIndexBytes([]uint32{0, 1, 2, 2, 3, 0})
 }

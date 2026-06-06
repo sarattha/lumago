@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/sarattha/lumago/engine/graphics"
+	"github.com/sarattha/lumago/engine/input"
 	lmath "github.com/sarattha/lumago/engine/math"
 	"github.com/sarattha/lumago/engine/renderer"
 	"github.com/sarattha/lumago/engine/scene"
@@ -123,4 +124,5 @@ func (w fixedFramebufferWindow) ShouldClose() bool           { return true }
 func (w fixedFramebufferWindow) PollEvents()                 {}
 func (w fixedFramebufferWindow) FramebufferSize() (int, int) { return w.width, w.height }
 func (w fixedFramebufferWindow) WaitForFramebuffer()         {}
+func (w fixedFramebufferWindow) KeyDown(input.Key) bool      { return false }
 func (w fixedFramebufferWindow) Close()                      {}

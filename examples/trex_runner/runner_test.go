@@ -1,0 +1,214 @@
+package main
+
+import (
+	"testing"
+
+	"github.com/sarattha/lumago/engine/graphics"
+)
+
+func TestRunnerStartsWithJump(t *testing.T) {
+	state := newRunnerState()
+
+	state.Step(1.0/runnerTargetFPS, runnerInput{Start: true, Jump: true})
+
+	if !state.Started {
+		t.Fatalf("runner did not start")
+	}
+	if state.PlayerVelY <= 0 {
+		t.Fatalf("player velocity=%.2f, want upward jump in renderer coordinates", state.PlayerVelY)
+	}
+}
+
+func TestRunnerStartsRunningByDefault(t *testing.T) {
+	state := newRunnerState()
+
+	if !state.Started {
+		t.Fatal("runner should start by default so the HUD score is visibly live")
+	}
+}
+
+func TestRunnerJumpMovesPlayerUpThenBackToGround(t *testing.T) {
+	state := newRunnerState()
+	state.Started = true
+	state.Obstacles = nil
+
+	state.Step(1.0/runnerTargetFPS, runnerInput{Jump: true})
+	if state.PlayerBottom <= runnerGroundY {
+		t.Fatalf("player bottom=%.2f, want above ground %.2f after jump", state.PlayerBottom, float32(runnerGroundY))
+	}
+
+	for i := 0; i < runnerTargetFPS; i++ {
+		state.Step(1.0/runnerTargetFPS, runnerInput{})
+	}
+	if !state.grounded() {
+		t.Fatalf("player did not return to ground: bottom=%.2f velocity=%.2f", state.PlayerBottom, state.PlayerVelY)
+	}
+}
+
+func TestRunnerDuckUsesLowerHitbox(t *testing.T) {
+	state := newRunnerState()
+	state.Started = true
+	standing := state.playerRect()
+
+	state.Step(1.0/runnerTargetFPS, runnerInput{Duck: true})
+	ducking := state.playerRect()
+
+	if !state.Ducking {
+		t.Fatalf("runner did not enter ducking state")
+	}
+	if ducking.H >= standing.H {
+		t.Fatalf("ducking hitbox height=%.2f, want less than standing %.2f", ducking.H, standing.H)
+	}
+	if ducking.W <= standing.W {
+		t.Fatalf("ducking hitbox width=%.2f, want wider than standing %.2f", ducking.W, standing.W)
+	}
+}
+
+func TestRunnerAdvancesScoreAndSpeed(t *testing.T) {
+	state := newRunnerState()
+	state.Started = true
+	state.Obstacles = nil
+
+	for i := 0; i < runnerTargetFPS; i++ {
+		state.Step(1.0/runnerTargetFPS, runnerInput{})
+	}
+
+	if state.Score <= 0 {
+		t.Fatalf("score=%d, want progress after running", state.Score)
+	}
+	if state.Speed <= runnerStartSpeed {
+		t.Fatalf("speed=%.2f, want acceleration from %.2f", state.Speed, float32(runnerStartSpeed))
+	}
+}
+
+func TestRunnerScoreDigitsAreLeftToRight(t *testing.T) {
+	if got := runnerScoreDigits(43); got != [5]int{0, 0, 0, 4, 3} {
+		t.Fatalf("score digits=%v, want 00043", got)
+	}
+	if got := runnerScoreDigits(123456); got != [5]int{2, 3, 4, 5, 6} {
+		t.Fatalf("score digits=%v, want wrapped 23456", got)
+	}
+	if got := runnerScoreDigits(-1); got != [5]int{0, 0, 0, 0, 0} {
+		t.Fatalf("score digits=%v, want clamped zero", got)
+	}
+}
+
+func TestRunnerScoreHUDChangesWithScore(t *testing.T) {
+	config := defaultRunnerConfig()
+	zero := newRunnerState()
+	scored := newRunnerState()
+	scored.Score = 43
+
+	zeroSegments := scoreHUDSegmentStates(buildRunnerScene(zero, config).Sprites())
+	scoredSegments := scoreHUDSegmentStates(buildRunnerScene(scored, config).Sprites())
+
+	if len(zeroSegments) != 35 || len(scoredSegments) != 35 {
+		t.Fatalf("score HUD segment counts zero=%d scored=%d, want 35 each", len(zeroSegments), len(scoredSegments))
+	}
+	if equalBoolSlices(zeroSegments, scoredSegments) {
+		t.Fatalf("score HUD segments did not change between 00000 and 00043")
+	}
+}
+
+func TestRunnerCollisionEndsRunAndRestartResets(t *testing.T) {
+	state := newRunnerState()
+	state.Started = true
+	state.Obstacles = []runnerObstacle{{Kind: runnerObstacleCactus, X: runnerDinoX}}
+
+	state.Step(1.0/runnerTargetFPS, runnerInput{})
+
+	if !state.GameOver {
+		t.Fatalf("collision did not end the run")
+	}
+	state.Step(1.0/runnerTargetFPS, runnerInput{Restart: true})
+	if state.GameOver || !state.Started {
+		t.Fatalf("restart failed: started=%t gameOver=%t", state.Started, state.GameOver)
+	}
+	if state.Score != 0 {
+		t.Fatalf("score=%d, want reset", state.Score)
+	}
+}
+
+func TestRunnerSceneUsesLightingShadowsAndReadableSpriteRoles(t *testing.T) {
+	config := defaultRunnerConfig()
+	state := newRunnerState()
+	world := buildRunnerScene(state, config)
+
+	if len(world.Sprites()) < 90 {
+		t.Fatalf("sprites=%d, want composed runner graphics", len(world.Sprites()))
+	}
+	if len(world.Lights()) != runnerLightCount {
+		t.Fatalf("lights=%d, want %d", len(world.Lights()), runnerLightCount)
+	}
+	if countRunnerShadowLights(world.Lights()) != runnerShadowLightCount {
+		t.Fatalf("shadow lights=%d, want %d", countRunnerShadowLights(world.Lights()), runnerShadowLightCount)
+	}
+	if len(world.Occluders()) < len(state.Obstacles)+3 {
+		t.Fatalf("occluders=%d, want ground/player/obstacle shadow casters", len(world.Occluders()))
+	}
+	counts := countRunnerLayers(world.Sprites())
+	if counts[12]+counts[13]+counts[14] < 8 {
+		t.Fatalf("dino body sprites too sparse: layers=%v", counts)
+	}
+	if counts[8]+counts[9]+counts[10] < 8 {
+		t.Fatalf("obstacle sprites too sparse: layers=%v", counts)
+	}
+	if counts[22] < 20 {
+		t.Fatalf("score digit sprites=%d, want visible seven-segment score", counts[22])
+	}
+	if countRunnerSunMoonSprites(world.Sprites()) < 10 {
+		t.Fatalf("sun/moon marker too sparse: got %d sprites", countRunnerSunMoonSprites(world.Sprites()))
+	}
+}
+
+func countRunnerShadowLights(lights []graphics.Light2D) int {
+	count := 0
+	for _, light := range lights {
+		if light.CastShadows {
+			count++
+		}
+	}
+	return count
+}
+
+func countRunnerLayers(sprites []graphics.SpriteDrawCommand) map[int]int {
+	counts := map[int]int{}
+	for _, sprite := range sprites {
+		counts[sprite.Layer]++
+	}
+	return counts
+}
+
+func countRunnerSunMoonSprites(sprites []graphics.SpriteDrawCommand) int {
+	count := 0
+	for _, sprite := range sprites {
+		x := sprite.Transform.Position.X
+		y := sprite.Transform.Position.Y
+		if sprite.Layer >= 2 && sprite.Layer <= 3 && x >= 1020 && x <= 1120 && y >= 554 && y <= 654 && sprite.Sprite.Material.Emissive > 1 {
+			count++
+		}
+	}
+	return count
+}
+
+func scoreHUDSegmentStates(sprites []graphics.SpriteDrawCommand) []bool {
+	states := []bool{}
+	for _, sprite := range sprites {
+		if sprite.Layer == 22 {
+			states = append(states, sprite.Sprite.Color.R > 0.5)
+		}
+	}
+	return states
+}
+
+func equalBoolSlices(a, b []bool) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}

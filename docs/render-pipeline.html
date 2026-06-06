@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LumaGo Render Pipeline</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f5f7f4;
+      --ink: #17202a;
+      --muted: #61707c;
+      --panel: #ffffff;
+      --soft: #eef4f2;
+      --line: #d5ddd8;
+      --go: #1b6f7f;
+      --gpu: #80682f;
+      --data: #6b5fb5;
+      --out: #23724d;
+      --warn: #9b5b21;
+      --shadow: 0 14px 40px rgba(23, 32, 42, 0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #101418;
+        --ink: #edf3f2;
+        --muted: #a8b4ba;
+        --panel: #192127;
+        --soft: #202b30;
+        --line: #324047;
+        --go: #63c5d5;
+        --gpu: #e2bd64;
+        --data: #aaa0ff;
+        --out: #72d39a;
+        --warn: #e2a45b;
+        --shadow: 0 14px 40px rgba(0, 0, 0, 0.22);
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    main {
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 34px 20px 72px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+      gap: 28px;
+      align-items: center;
+      min-height: 360px;
+      margin-bottom: 26px;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    h1 {
+      margin-bottom: 16px;
+      font-size: clamp(2.35rem, 5vw, 5.2rem);
+      line-height: 0.98;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin-bottom: 16px;
+      font-size: 1.55rem;
+      line-height: 1.18;
+    }
+
+    h3 {
+      margin-bottom: 8px;
+      font-size: 1rem;
+      line-height: 1.25;
+    }
+
+    p { color: var(--muted); }
+
+    code {
+      padding: 0.12rem 0.32rem;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--soft);
+      color: var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      overflow-x: auto;
+      margin: 0;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #101820;
+      color: #edf3f2;
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    pre code {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: inherit;
+    }
+
+    section {
+      margin-bottom: 22px;
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .lead {
+      max-width: 62ch;
+      font-size: 1.12rem;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 6px 11px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel);
+      color: var(--ink);
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    .hero-art {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .two {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 18px;
+    }
+
+    .card {
+      min-height: 100%;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--soft);
+    }
+
+    .card strong {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--ink);
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(130px, 1fr));
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+    }
+
+    .step {
+      position: relative;
+      min-width: 130px;
+      min-height: 138px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--soft);
+    }
+
+    .step::after {
+      content: "";
+      position: absolute;
+      top: 48px;
+      right: -11px;
+      width: 10px;
+      height: 2px;
+      background: var(--line);
+    }
+
+    .step:last-child::after { display: none; }
+
+    .num {
+      display: inline-grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      margin-bottom: 12px;
+      border-radius: 50%;
+      background: var(--go);
+      color: white;
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+
+    .gpu .num { background: var(--gpu); color: #1f1a10; }
+    .data .num { background: var(--data); color: white; }
+    .out .num { background: var(--out); color: white; }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--go);
+    }
+
+    .dot.gpu { background: var(--gpu); }
+    .dot.data { background: var(--data); }
+    .dot.out { background: var(--out); }
+
+    .matrix {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1.4fr;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .matrix div {
+      padding: 12px 14px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .matrix div:nth-child(3n) { border-right: 0; }
+    .matrix div:nth-last-child(-n + 3) { border-bottom: 0; }
+    .matrix .head {
+      background: var(--soft);
+      color: var(--ink);
+      font-weight: 800;
+    }
+
+    .note {
+      border-left: 4px solid var(--warn);
+      padding-left: 14px;
+      color: var(--muted);
+    }
+
+    .callout {
+      border-left: 4px solid var(--go);
+      padding-left: 14px;
+      color: var(--muted);
+    }
+
+    .mini {
+      margin-bottom: 0;
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 880px) {
+      header, .two { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: 1fr; }
+      .flow { grid-template-columns: repeat(6, 150px); }
+      .matrix { grid-template-columns: 1fr; }
+      .matrix div, .matrix div:nth-child(3n), .matrix div:nth-last-child(-n + 3) {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .matrix div:last-child { border-bottom: 0; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>LumaGo Render Pipeline</h1>
+      <p class="lead">A frame starts as simple Go scene data: sprites, materials, lights, occluders, and a camera. The renderer turns that data into batches, render targets, lighting buffers, and finally a swapchain image that is presented as the next output frame.</p>
+      <div class="badge-row" aria-label="Pipeline highlights">
+        <span class="badge">Go-native scene API</span>
+        <span class="badge">Renderer interface boundary</span>
+        <span class="badge">Vulkan-first backend</span>
+        <span class="badge">2D lighting and shadows</span>
+      </div>
+    </div>
+    <div class="hero-art" aria-label="Abstract render pipeline diagram">
+      <svg viewBox="0 0 760 520" role="img">
+        <title>Frame data moving from Go scene objects into GPU passes and output frame</title>
+        <defs>
+          <linearGradient id="screenGlow" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0" stop-color="#2f8f9d"/>
+            <stop offset="0.55" stop-color="#8673d8"/>
+            <stop offset="1" stop-color="#d0a447"/>
+          </linearGradient>
+          <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#000000" flood-opacity="0.24"/>
+          </filter>
+        </defs>
+        <rect x="22" y="22" width="716" height="476" rx="16" fill="var(--soft)" stroke="var(--line)"/>
+        <g filter="url(#softShadow)">
+          <rect x="70" y="96" width="200" height="280" rx="10" fill="var(--panel)" stroke="var(--line)"/>
+          <rect x="314" y="58" width="132" height="350" rx="10" fill="var(--panel)" stroke="var(--line)"/>
+          <rect x="490" y="112" width="198" height="250" rx="10" fill="var(--panel)" stroke="var(--line)"/>
+        </g>
+        <text x="100" y="136" fill="var(--ink)" font-size="24" font-weight="800">Go scene</text>
+        <text x="342" y="96" fill="var(--ink)" font-size="24" font-weight="800">Passes</text>
+        <text x="526" y="152" fill="var(--ink)" font-size="24" font-weight="800">Output</text>
+        <g font-size="18" fill="var(--muted)">
+          <text x="100" y="184">sprites</text>
+          <text x="100" y="222">materials</text>
+          <text x="100" y="260">lights</text>
+          <text x="100" y="298">occluders</text>
+          <text x="100" y="336">camera</text>
+        </g>
+        <g fill="none" stroke="var(--go)" stroke-width="5" stroke-linecap="round">
+          <path d="M270 236 C292 236 292 236 314 236"/>
+        </g>
+        <g fill="none" stroke="var(--gpu)" stroke-width="5" stroke-linecap="round">
+          <path d="M446 236 C468 236 468 236 490 236"/>
+        </g>
+        <g>
+          <circle cx="380" cy="144" r="20" fill="var(--gpu)"/>
+          <circle cx="380" cy="202" r="20" fill="var(--gpu)"/>
+          <circle cx="380" cy="260" r="20" fill="var(--gpu)"/>
+          <circle cx="380" cy="318" r="20" fill="var(--gpu)"/>
+          <line x1="380" y1="164" x2="380" y2="182" stroke="var(--line)" stroke-width="4"/>
+          <line x1="380" y1="222" x2="380" y2="240" stroke="var(--line)" stroke-width="4"/>
+          <line x1="380" y1="280" x2="380" y2="298" stroke="var(--line)" stroke-width="4"/>
+          <text x="375" y="151" text-anchor="middle" fill="#1f1a10" font-size="19" font-weight="900">1</text>
+          <text x="375" y="209" text-anchor="middle" fill="#1f1a10" font-size="19" font-weight="900">2</text>
+          <text x="375" y="267" text-anchor="middle" fill="#1f1a10" font-size="19" font-weight="900">3</text>
+          <text x="375" y="325" text-anchor="middle" fill="#1f1a10" font-size="19" font-weight="900">4</text>
+        </g>
+        <rect x="528" y="190" width="122" height="96" rx="8" fill="url(#screenGlow)"/>
+        <circle cx="575" cy="232" r="24" fill="#f6d66a" opacity="0.95"/>
+        <rect x="555" y="260" width="74" height="12" rx="6" fill="#101820" opacity="0.32"/>
+        <text x="520" y="322" fill="var(--muted)" font-size="18">swapchain image</text>
+      </svg>
+    </div>
+  </header>
+
+  <section>
+    <h2>One Frame In Six Moves</h2>
+    <div class="flow" aria-label="Six stage render flow">
+      <article class="step">
+        <span class="num">1</span>
+        <h3>Update Game</h3>
+        <p class="mini">Your update function changes positions, animations, lights, camera, and gameplay state.</p>
+      </article>
+      <article class="step">
+        <span class="num">2</span>
+        <h3>Build Scene Data</h3>
+        <p class="mini"><code>Scene</code> exposes sprites, lighting config, lights, occluders, and camera.</p>
+      </article>
+      <article class="step data">
+        <span class="num">3</span>
+        <h3>Build Batch</h3>
+        <p class="mini">Sprites become a <code>SpriteBatch</code> with vertices, indices, and draw stats.</p>
+      </article>
+      <article class="step gpu">
+        <span class="num">4</span>
+        <h3>Upload Frame</h3>
+        <p class="mini">The backend uploads vertex, index, light, shadow, and SDF data for the frame.</p>
+      </article>
+      <article class="step gpu">
+        <span class="num">5</span>
+        <h3>Run Passes</h3>
+        <p class="mini">Color, normal, shadow, light, optional SDF, and composite work produce the final image.</p>
+      </article>
+      <article class="step out">
+        <span class="num">6</span>
+        <h3>Present</h3>
+        <p class="mini">The renderer submits commands, signals sync objects, and presents the swapchain image.</p>
+      </article>
+    </div>
+    <div class="legend">
+      <span><i class="dot"></i>Go engine code</span>
+      <span><i class="dot data"></i>Frame data</span>
+      <span><i class="dot gpu"></i>Renderer/GPU work</span>
+      <span><i class="dot out"></i>Output frame</span>
+    </div>
+  </section>
+
+  <section class="two">
+    <div>
+      <h2>Code Path</h2>
+      <p>The app loop owns frame timing and calls the renderer through the backend-neutral <code>renderer.Renderer</code> interface. Game code does not call Vulkan directly.</p>
+      <pre><code>Game.runFrame()
+  BeginFrame(scene.Camera())
+  SubmitSpriteBatch(scene.BuildSpriteBatch(width, height))
+  ConfigureLighting(scene.LightingConfig())
+  SubmitLights(scene.Lights())
+  SubmitOccluders(scene.Occluders())
+  EndFrame()</code></pre>
+    </div>
+    <div>
+      <h2>What Crosses The Boundary</h2>
+      <p>The renderer receives already-shaped engine data, not gameplay objects. This keeps Vulkan details behind the backend.</p>
+      <pre><code>Renderer input:
+  Camera2D
+  SpriteBatch
+  LightingConfig2D
+  []Light2D
+  []Occluder2D
+
+Renderer output:
+  FrameStats
+  swapchain image</code></pre>
+    </div>
+  </section>
+
+  <section>
+    <h2>Pass Diagram</h2>
+    <svg viewBox="0 0 1120 520" role="img" aria-label="Detailed render pass graph">
+      <title>Render passes from sprite input through scene color, scene normal, shadows, light buffer, composite, and present</title>
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--line)"/>
+        </marker>
+      </defs>
+      <rect x="18" y="24" width="1084" height="472" rx="12" fill="var(--soft)" stroke="var(--line)"/>
+
+      <g font-family="ui-sans-serif, system-ui" font-size="18">
+        <rect x="54" y="72" width="160" height="84" rx="8" fill="var(--panel)" stroke="var(--go)"/>
+        <text x="78" y="107" fill="var(--ink)" font-weight="800">SpriteBatch</text>
+        <text x="78" y="132" fill="var(--muted)" font-size="15">vertices + indices</text>
+
+        <rect x="278" y="52" width="166" height="84" rx="8" fill="var(--panel)" stroke="var(--gpu)"/>
+        <text x="306" y="87" fill="var(--ink)" font-weight="800">Color pass</text>
+        <text x="306" y="112" fill="var(--muted)" font-size="15">albedo + emissive</text>
+
+        <rect x="278" y="164" width="166" height="84" rx="8" fill="var(--panel)" stroke="var(--gpu)"/>
+        <text x="306" y="199" fill="var(--ink)" font-weight="800">Normal pass</text>
+        <text x="306" y="224" fill="var(--muted)" font-size="15">normal maps</text>
+
+        <rect x="278" y="276" width="166" height="84" rx="8" fill="var(--panel)" stroke="var(--gpu)"/>
+        <text x="306" y="311" fill="var(--ink)" font-weight="800">Shadow pass</text>
+        <text x="306" y="336" fill="var(--muted)" font-size="15">occluder masks</text>
+
+        <rect x="278" y="388" width="166" height="64" rx="8" fill="var(--panel)" stroke="var(--gpu)"/>
+        <text x="306" y="425" fill="var(--ink)" font-weight="800">SDF pass</text>
+
+        <rect x="524" y="52" width="168" height="84" rx="8" fill="var(--panel)" stroke="var(--data)"/>
+        <text x="552" y="87" fill="var(--ink)" font-weight="800">scene_color</text>
+        <text x="552" y="112" fill="var(--muted)" font-size="15">sprite albedo</text>
+
+        <rect x="524" y="164" width="168" height="84" rx="8" fill="var(--panel)" stroke="var(--data)"/>
+        <text x="552" y="199" fill="var(--ink)" font-weight="800">scene_normal</text>
+        <text x="552" y="224" fill="var(--muted)" font-size="15">per-pixel normals</text>
+
+        <rect x="524" y="276" width="168" height="84" rx="8" fill="var(--panel)" stroke="var(--data)"/>
+        <text x="552" y="311" fill="var(--ink)" font-weight="800">shadow data</text>
+        <text x="552" y="336" fill="var(--muted)" font-size="15">map or SDF</text>
+
+        <rect x="758" y="152" width="168" height="104" rx="8" fill="var(--panel)" stroke="var(--gpu)"/>
+        <text x="786" y="188" fill="var(--ink)" font-weight="800">Light pass</text>
+        <text x="786" y="214" fill="var(--muted)" font-size="15">normal + light</text>
+        <text x="786" y="238" fill="var(--muted)" font-size="15">+ visibility</text>
+
+        <rect x="758" y="300" width="168" height="84" rx="8" fill="var(--panel)" stroke="var(--data)"/>
+        <text x="786" y="335" fill="var(--ink)" font-weight="800">light_buffer</text>
+        <text x="786" y="360" fill="var(--muted)" font-size="15">accumulated light</text>
+
+        <rect x="970" y="156" width="96" height="84" rx="8" fill="var(--panel)" stroke="var(--out)"/>
+        <text x="992" y="192" fill="var(--ink)" font-weight="800">Final</text>
+        <text x="992" y="217" fill="var(--muted)" font-size="15">frame</text>
+      </g>
+
+      <g fill="none" stroke="var(--line)" stroke-width="3" marker-end="url(#arrow)">
+        <path d="M214 114 H278"/>
+        <path d="M214 114 C244 114 238 206 278 206"/>
+        <path d="M214 114 C246 114 238 318 278 318"/>
+        <path d="M444 94 H524"/>
+        <path d="M444 206 H524"/>
+        <path d="M444 318 H524"/>
+        <path d="M444 420 C482 420 484 342 524 330"/>
+        <path d="M692 206 H758"/>
+        <path d="M692 318 C722 318 728 230 758 218"/>
+        <path d="M926 342 C954 342 946 198 970 198"/>
+        <path d="M692 94 C738 94 720 174 758 184"/>
+        <path d="M926 204 H970"/>
+      </g>
+    </svg>
+    <p class="callout">The composite formula for the full lighting path is <code>sceneColor * lightBuffer + emissive</code>. Debug views can swap the final output to show color, normals, light, shadow, or SDF data while developing.</p>
+  </section>
+
+  <section>
+    <h2>Render Targets And Why They Exist</h2>
+    <div class="matrix" role="table" aria-label="Render target explanation">
+      <div class="head">Buffer or Data</div>
+      <div class="head">Written By</div>
+      <div class="head">Used For</div>
+
+      <div><code>scene_color</code></div>
+      <div>Sprite color pass</div>
+      <div>Stores albedo color for each visible sprite pixel.</div>
+
+      <div><code>scene_emissive</code></div>
+      <div>Sprite color pass</div>
+      <div>Adds pixels that should glow without needing light.</div>
+
+      <div><code>scene_normal</code></div>
+      <div>Sprite normal pass</div>
+      <div>Stores normal-map direction so 2D sprites respond to light shape.</div>
+
+      <div><code>shadow data</code></div>
+      <div>Shadow map or SDF path</div>
+      <div>Stores light visibility from occluders before lighting is accumulated.</div>
+
+      <div><code>light_buffer</code></div>
+      <div>Light accumulation pass</div>
+      <div>Combines ambient light, point lights, falloff, normals, and shadow visibility.</div>
+
+      <div><code>swapchain image</code></div>
+      <div>Composite pass</div>
+      <div>The image sent to the desktop window by the present queue.</div>
+    </div>
+  </section>
+
+  <section class="grid">
+    <article class="card">
+      <strong>Game code owns intent</strong>
+      <p class="mini">A user adds sprites, lights, occluders, and camera changes to <code>scene.Scene</code>. The game layer answers what should be drawn.</p>
+    </article>
+    <article class="card">
+      <strong>The scene builds renderable data</strong>
+      <p class="mini"><code>BuildSpriteBatch</code> applies the camera and viewport, then creates batched geometry for the renderer.</p>
+    </article>
+    <article class="card">
+      <strong>The backend owns GPU details</strong>
+      <p class="mini">The Vulkan renderer handles swapchain images, command buffers, buffers, descriptors, shader reloads, and presentation.</p>
+    </article>
+  </section>
+
+  <section class="two">
+    <div>
+      <h2>Current Backend Note</h2>
+      <p class="note">The active Vulkan backend is still evolving. It currently records a swapchain render pass and draws the prepared lit sprite batch, while exposing pass timings for <code>color</code>, <code>normal</code>, <code>shadow</code>, <code>light</code>, <code>sdf</code>, <code>composite</code>, and <code>present</code>. The full render-target graph shown above is the MVP lighting pipeline documented by the engine architecture.</p>
+    </div>
+    <div>
+      <h2>How To Inspect A Frame</h2>
+      <p>Run the lighting example and choose a debug view with environment variables. The overlay reports sprite count, light count, occluder count, draw calls, allocation bytes, CPU frame time, and pass timings.</p>
+      <pre><code>make shaders
+LUMAGO_DEBUG_VIEW=normal make run-lighting
+LUMAGO_DEBUG_VIEW=light make run-lighting
+LUMAGO_SHADOW_MODE=sdf make run-lighting</code></pre>
+    </div>
+  </section>
+
+  <section>
+    <h2>Mental Model For New Users</h2>
+    <div class="grid">
+      <div class="card">
+        <strong>1. Author normal Go objects</strong>
+        <p class="mini">Use <code>graphics.SpriteDrawCommand</code>, <code>graphics.Material2D</code>, <code>graphics.Light2D</code>, <code>graphics.Occluder2D</code>, and <code>graphics.Camera2D</code>.</p>
+      </div>
+      <div class="card">
+        <strong>2. Let the engine batch</strong>
+        <p class="mini">Avoid thinking in per-draw Vulkan calls. The scene and renderer turn many sprites into compact frame data.</p>
+      </div>
+      <div class="card">
+        <strong>3. Debug by buffer</strong>
+        <p class="mini">If lighting looks wrong, inspect color first, then normal, then light, then shadow or SDF, then final composite.</p>
+      </div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

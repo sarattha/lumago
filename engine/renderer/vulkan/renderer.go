@@ -86,7 +86,7 @@ type Renderer struct {
 	pendingBatch     graphics.SpriteBatch
 	pendingLitBatch  graphics.SpriteBatch
 	pendingLitVerts  []graphics.SpriteVertex
-	pendingLitIndex  []uint16
+	pendingLitIndex  []uint32
 	pendingViewport  vk.Extent2D
 	pendingLights    []graphics.Light2D
 	pendingOccluders []graphics.Occluder2D
@@ -854,7 +854,7 @@ func (r *Renderer) recordCommandBuffer(commandBuffer vk.CommandBuffer, imageInde
 	vk.CmdBindDescriptorSets(commandBuffer, vk.PipelineBindPointGraphics, r.pipelineLayout, 0, 1, []vk.DescriptorSet{r.descriptorSet}, 0, nil)
 	frame := &r.spriteFrames[r.frame]
 	vk.CmdBindVertexBuffers(commandBuffer, 0, 1, []vk.Buffer{frame.vertexBuffer}, []vk.DeviceSize{0})
-	vk.CmdBindIndexBuffer(commandBuffer, frame.indexBuffer, 0, vk.IndexTypeUint16)
+	vk.CmdBindIndexBuffer(commandBuffer, frame.indexBuffer, 0, vk.IndexTypeUint32)
 	if r.pendingLitBatch.Stats.IndexCount > 0 {
 		r.recordPassTiming("composite", func() {
 			vk.CmdDrawIndexed(commandBuffer, uint32(r.pendingLitBatch.Stats.IndexCount), 1, 0, 0, 0)

@@ -356,6 +356,7 @@ const SubpassContentsInline SubpassContents = 0
 type IndexType int32
 
 const IndexTypeUint16 IndexType = 0
+const IndexTypeUint32 IndexType = 1
 
 const (
 	SubpassExternal    = ^uint32(0)

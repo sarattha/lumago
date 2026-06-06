@@ -34,6 +34,32 @@ func TestLightingRoomMatchesMVPAcceptanceTarget(t *testing.T) {
 	}
 }
 
+func TestLightingRoomLoadsExternalAssetTextures(t *testing.T) {
+	config := defaultDemoConfig()
+	game := app.NewGame(app.Config{Width: config.Width, Height: config.Height})
+	buildLightingRoom(game, config)
+
+	for _, name := range []string{
+		"floor.png",
+		"wall.png",
+		"character.png",
+		"prop.png",
+		"floor_n.png",
+		"wall_n.png",
+		"character_n.png",
+		"prop_n.png",
+	} {
+		path := lightingRoomAssetPath(name)
+		info, ok := game.Assets.TextureByPath(path)
+		if !ok {
+			t.Fatalf("%s was not loaded", path)
+		}
+		if info.Width != 16 || info.Height != 16 {
+			t.Fatalf("%s size=%dx%d, want 16x16 external asset texture", path, info.Width, info.Height)
+		}
+	}
+}
+
 func TestLightingRoomCarriesConfiguredDebugViews(t *testing.T) {
 	for _, debugView := range []graphics.DebugView2D{
 		graphics.DebugViewSceneColor,
@@ -89,6 +115,70 @@ func TestLightingRoomMaterialDistributionIsSpatialNotColumnStriped(t *testing.T)
 		}
 		if len(seen) < 3 {
 			t.Fatalf("row %d uses %d material(s), want floor, wall, and prop variation", y, len(seen))
+		}
+	}
+}
+
+func TestLightingRoomVisualCommunicationRolesAreObvious(t *testing.T) {
+	counts := map[spriteRole]int{}
+	for y := 0; y < acceptanceTileRows; y++ {
+		for x := 0; x < acceptanceTileColumns; x++ {
+			counts[roomSpriteSpecAt(x, y).Role]++
+		}
+	}
+
+	if counts[spriteRoleWall] < 180 {
+		t.Fatalf("wall sprites=%d, want broad wall bands", counts[spriteRoleWall])
+	}
+	if counts[spriteRoleProp] < 95 {
+		t.Fatalf("prop sprites=%d, want readable prop blocks", counts[spriteRoleProp])
+	}
+	if counts[spriteRoleLightMarker] != 36 {
+		t.Fatalf("light marker sprites=%d, want four 3x3 marker glyphs", counts[spriteRoleLightMarker])
+	}
+	if counts[spriteRoleLegend] < 20 {
+		t.Fatalf("legend sprites=%d, want visible debug legend/labels", counts[spriteRoleLegend])
+	}
+
+	floorA := roomSpriteSpecAt(6, 11)
+	floorB := roomSpriteSpecAt(7, 11)
+	if floorA.Role != spriteRoleFloor || floorB.Role != spriteRoleFloor {
+		t.Fatalf("floor samples roles=%v,%v, want floor", floorA.Role, floorB.Role)
+	}
+	if sameColor(floorA.Color, floorB.Color) {
+		t.Fatalf("floor samples have same color %+v, want visible tile contrast", floorA.Color)
+	}
+
+	leftWall := roomSpriteSpecAt(0, 12)
+	nextWall := roomSpriteSpecAt(1, 12)
+	if leftWall.Role != spriteRoleWall || nextWall.Role != spriteRoleWall {
+		t.Fatalf("left band roles=%v,%v, want two-tile wall band", leftWall.Role, nextWall.Role)
+	}
+	if leftWall.Scale.X <= 1 || nextWall.Scale.X <= 1 {
+		t.Fatalf("wall scales=%+v,%+v, want expanded band tiles", leftWall.Scale, nextWall.Scale)
+	}
+
+	propEdge := roomSpriteSpecAt(24, 7)
+	propFace := roomSpriteSpecAt(25, 8)
+	if propEdge.Role != spriteRoleProp || propFace.Role != spriteRoleProp {
+		t.Fatalf("prop samples roles=%v,%v, want prop block", propEdge.Role, propFace.Role)
+	}
+	if propEdge.Color.R >= propFace.Color.R {
+		t.Fatalf("prop edge=%+v face=%+v, want darker edge and brighter face", propEdge.Color, propFace.Color)
+	}
+
+	lightCenter := roomSpriteSpecAt(9, 9)
+	lightArm := roomSpriteSpecAt(10, 9)
+	if lightCenter.Role != spriteRoleLightMarker || lightArm.Role != spriteRoleLightMarker {
+		t.Fatalf("light marker roles=%v,%v, want center and arm glyph", lightCenter.Role, lightArm.Role)
+	}
+	if lightCenter.Scale.X <= lightArm.Scale.X {
+		t.Fatalf("light marker scales center=%+v arm=%+v, want emphasized center", lightCenter.Scale, lightArm.Scale)
+	}
+
+	for _, point := range []struct{ x, y int }{{22, 20}, {26, 20}, {30, 20}, {34, 20}} {
+		if got := roomSpriteSpecAt(point.x, point.y).Role; got != spriteRoleLegend {
+			t.Fatalf("legend swatch (%d,%d) role=%v, want legend", point.x, point.y, got)
 		}
 	}
 }
@@ -155,4 +245,12 @@ func countShadowLights(lights []graphics.Light2D) int {
 		}
 	}
 	return count
+}
+
+func sameColor(a, b lmath.Color) bool {
+	const epsilon = 0.0001
+	return math.Abs(float64(a.R-b.R)) < epsilon &&
+		math.Abs(float64(a.G-b.G)) < epsilon &&
+		math.Abs(float64(a.B-b.B)) < epsilon &&
+		math.Abs(float64(a.A-b.A)) < epsilon
 }
