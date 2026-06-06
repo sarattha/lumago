@@ -55,6 +55,18 @@ func TestRunnerAdvancesScoreAndSpeed(t *testing.T) {
 	}
 }
 
+func TestRunnerScoreDigitsAreLeftToRight(t *testing.T) {
+	if got := runnerScoreDigits(43); got != [5]int{0, 0, 0, 4, 3} {
+		t.Fatalf("score digits=%v, want 00043", got)
+	}
+	if got := runnerScoreDigits(123456); got != [5]int{2, 3, 4, 5, 6} {
+		t.Fatalf("score digits=%v, want wrapped 23456", got)
+	}
+	if got := runnerScoreDigits(-1); got != [5]int{0, 0, 0, 0, 0} {
+		t.Fatalf("score digits=%v, want clamped zero", got)
+	}
+}
+
 func TestRunnerCollisionEndsRunAndRestartResets(t *testing.T) {
 	state := newRunnerState()
 	state.Started = true

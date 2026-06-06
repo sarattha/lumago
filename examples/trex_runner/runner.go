@@ -330,11 +330,8 @@ func addRunnerLegs(world *scene.Scene, x, bottom, t float32) {
 
 func addRunnerScore(world *scene.Scene, state runnerState) {
 	addRunnerRect(world, 1075, 650, 250, 52, lmath.Color{R: 0.03, G: 0.04, B: 0.05, A: 1}, 20, 0)
-	score := state.Score
-	for i := 4; i >= 0; i-- {
-		digit := score % 10
-		score /= 10
-		addRunnerDigit(world, float32(1180-i*32), 650, digit)
+	for i, digit := range runnerScoreDigits(state.Score) {
+		addRunnerDigit(world, float32(1052+i*32), 650, digit)
 	}
 	if !state.Started && !state.GameOver {
 		addRunnerRect(world, 640, 294, 320, 52, lmath.Color{R: 0.05, G: 0.06, B: 0.08, A: 1}, 20, 0)
@@ -346,6 +343,19 @@ func addRunnerScore(world *scene.Scene, state runnerState) {
 		addRunnerRect(world, 640, 286, 260, 9, lmath.Color{R: 1.00, G: 0.28, B: 0.25, A: 1}, 21, 2.4)
 		addRunnerRect(world, 640, 309, 210, 7, lmath.Color{R: 1.00, G: 0.84, B: 0.48, A: 1}, 21, 2.0)
 	}
+}
+
+func runnerScoreDigits(score int) [5]int {
+	if score < 0 {
+		score = 0
+	}
+	score %= 100000
+	digits := [5]int{}
+	for i := len(digits) - 1; i >= 0; i-- {
+		digits[i] = score % 10
+		score /= 10
+	}
+	return digits
 }
 
 func addRunnerDigit(world *scene.Scene, x, y float32, digit int) {
