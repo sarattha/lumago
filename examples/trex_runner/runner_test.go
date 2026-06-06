@@ -1,8 +1,10 @@
 package main
 
 import (
+	"image"
 	"testing"
 
+	"github.com/sarattha/lumago/engine/app"
 	"github.com/sarattha/lumago/engine/graphics"
 )
 
@@ -95,12 +97,13 @@ func TestRunnerScoreDigitsAreLeftToRight(t *testing.T) {
 
 func TestRunnerScoreHUDChangesWithScore(t *testing.T) {
 	config := defaultRunnerConfig()
+	game := app.NewGame(app.Config{Width: config.Width, Height: config.Height})
 	zero := newRunnerState()
 	scored := newRunnerState()
 	scored.Score = 43
 
-	zeroSegments := scoreHUDSegmentStates(buildRunnerScene(zero, config).Sprites())
-	scoredSegments := scoreHUDSegmentStates(buildRunnerScene(scored, config).Sprites())
+	zeroSegments := scoreHUDSegmentStates(buildRunnerScene(game, zero, config).Sprites())
+	scoredSegments := scoreHUDSegmentStates(buildRunnerScene(game, scored, config).Sprites())
 
 	if len(zeroSegments) != 35 || len(scoredSegments) != 35 {
 		t.Fatalf("score HUD segment counts zero=%d scored=%d, want 35 each", len(zeroSegments), len(scoredSegments))
@@ -131,10 +134,11 @@ func TestRunnerCollisionEndsRunAndRestartResets(t *testing.T) {
 
 func TestRunnerSceneUsesLightingShadowsAndReadableSpriteRoles(t *testing.T) {
 	config := defaultRunnerConfig()
+	game := app.NewGame(app.Config{Width: config.Width, Height: config.Height})
 	state := newRunnerState()
-	world := buildRunnerScene(state, config)
+	world := buildRunnerScene(game, state, config)
 
-	if len(world.Sprites()) < 90 {
+	if len(world.Sprites()) < 45 {
 		t.Fatalf("sprites=%d, want composed runner graphics", len(world.Sprites()))
 	}
 	if len(world.Lights()) != runnerLightCount {
@@ -147,17 +151,117 @@ func TestRunnerSceneUsesLightingShadowsAndReadableSpriteRoles(t *testing.T) {
 		t.Fatalf("occluders=%d, want ground/player/obstacle shadow casters", len(world.Occluders()))
 	}
 	counts := countRunnerLayers(world.Sprites())
-	if counts[12]+counts[13]+counts[14] < 8 {
-		t.Fatalf("dino body sprites too sparse: layers=%v", counts)
+	if counts[13] < 1 {
+		t.Fatalf("dino sprite missing: layers=%v", counts)
 	}
-	if counts[8]+counts[9]+counts[10] < 8 {
-		t.Fatalf("obstacle sprites too sparse: layers=%v", counts)
+	if counts[9] < len(state.Obstacles) {
+		t.Fatalf("rock obstacle sprites=%d, want at least %d", counts[9], len(state.Obstacles))
+	}
+	if counts[5] < 2 {
+		t.Fatalf("road sprites=%d, want scrolling textured road", counts[5])
 	}
 	if counts[22] < 20 {
 		t.Fatalf("score digit sprites=%d, want visible seven-segment score", counts[22])
 	}
-	if countRunnerSunMoonSprites(world.Sprites()) < 10 {
-		t.Fatalf("sun/moon marker too sparse: got %d sprites", countRunnerSunMoonSprites(world.Sprites()))
+	if countRunnerSunMoonSprites(world.Sprites()) < 1 {
+		t.Fatalf("sun/moon sprite missing")
+	}
+}
+
+func TestRunnerLoadsVisualAssetTextures(t *testing.T) {
+	config := defaultRunnerConfig()
+	game := app.NewGame(app.Config{Width: config.Width, Height: config.Height})
+	buildRunnerScene(game, newRunnerState(), config)
+
+	for _, asset := range []struct {
+		Name   string
+		Kind   string
+		Src    image.Rectangle
+		Width  int
+		Height int
+	}{
+		{Name: "sky/dawn-sky.png", Kind: "sky", Src: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36},
+		{Name: "sky/noon-sky.png", Kind: "sky", Src: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36},
+		{Name: "sky/evening-sky.png", Kind: "sky", Src: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36},
+		{Name: "sky/night-sky.png", Kind: "sky", Src: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36},
+		{Name: "sun.png", Kind: "sun", Src: image.Rect(130, 70, 930, 960), Width: 56, Height: 64},
+		{Name: "moon.png", Kind: "moon", Src: image.Rect(120, 80, 930, 940), Width: 56, Height: 64},
+		{Name: "road.png", Kind: "road", Src: image.Rect(0, 390, 1536, 650), Width: 64, Height: 14},
+		{Name: "rock.png", Kind: "rock", Src: image.Rect(300, 285, 1220, 820), Width: 56, Height: 40},
+		{Name: "dino.png", Kind: "dino", Src: image.Rect(180, 170, 1260, 840), Width: 64, Height: 40},
+	} {
+		path := runnerProcessedAssetPath(asset.Name, asset.Kind, asset.Src, asset.Width, asset.Height)
+		info, ok := game.Assets.TextureByPath(path)
+		if !ok {
+			t.Fatalf("%s was not loaded", path)
+		}
+		if info.Width != asset.Width || info.Height != asset.Height {
+			t.Fatalf("%s size=%dx%d, want %dx%d", path, info.Width, info.Height, asset.Width, asset.Height)
+		}
+		if info.Width*info.Height > 64*64 {
+			t.Fatalf("%s has %d texels, want Vulkan texel lighting path limit <=4096", path, info.Width*info.Height)
+		}
+	}
+}
+
+func TestRunnerGeneratedCutoutsHaveTransparentPixels(t *testing.T) {
+	config := defaultRunnerConfig()
+	game := app.NewGame(app.Config{Width: config.Width, Height: config.Height})
+	buildRunnerScene(game, newRunnerState(), config)
+
+	for _, asset := range []struct {
+		Name   string
+		Kind   string
+		Src    image.Rectangle
+		Width  int
+		Height int
+	}{
+		{Name: "sun.png", Kind: "sun", Src: image.Rect(130, 70, 930, 960), Width: 56, Height: 64},
+		{Name: "moon.png", Kind: "moon", Src: image.Rect(120, 80, 930, 940), Width: 56, Height: 64},
+		{Name: "rock.png", Kind: "rock", Src: image.Rect(300, 285, 1220, 820), Width: 56, Height: 40},
+		{Name: "dino.png", Kind: "dino", Src: image.Rect(180, 170, 1260, 840), Width: 64, Height: 40},
+	} {
+		path := runnerProcessedAssetPath(asset.Name, asset.Kind, asset.Src, asset.Width, asset.Height)
+		info, ok := game.Assets.TextureByPath(path)
+		if !ok {
+			t.Fatalf("%s was not loaded", path)
+		}
+		data, ok := graphics.RegisteredTextureData(info.ID)
+		if !ok {
+			t.Fatalf("%s texture data was not registered", path)
+		}
+		transparent := 0
+		opaque := 0
+		for _, pixel := range data.Pixels {
+			if pixel.A <= 0.01 {
+				transparent++
+			}
+			if pixel.A > 0.99 {
+				opaque++
+			}
+		}
+		if transparent == 0 || opaque == 0 {
+			t.Fatalf("%s transparent=%d opaque=%d, want cutout with both", path, transparent, opaque)
+		}
+	}
+}
+
+func TestRunnerTimeOfDayMovesSunAndMoonRightToLeft(t *testing.T) {
+	sunDawn := runnerSunPosition(0)
+	sunNoon := runnerSunPosition(runnerDayCycle * 0.25)
+	sunEvening := runnerSunPosition(runnerDayCycle * 0.50)
+	if !(sunDawn.X > sunNoon.X && sunNoon.X > sunEvening.X) {
+		t.Fatalf("sun x positions dawn/noon/evening = %.1f/%.1f/%.1f, want right-to-left", sunDawn.X, sunNoon.X, sunEvening.X)
+	}
+	if sunNoon.Y <= sunDawn.Y || sunNoon.Y <= sunEvening.Y {
+		t.Fatalf("sun arc y dawn/noon/evening = %.1f/%.1f/%.1f, want highest near noon", sunDawn.Y, sunNoon.Y, sunEvening.Y)
+	}
+
+	moonEvening := runnerMoonPosition(runnerDayCycle * 0.50)
+	moonNight := runnerMoonPosition(runnerDayCycle * 0.75)
+	moonDawn := runnerMoonPosition(runnerDayCycle * 0.99)
+	if !(moonEvening.X > moonNight.X && moonNight.X > moonDawn.X) {
+		t.Fatalf("moon x positions evening/night/dawn = %.1f/%.1f/%.1f, want right-to-left", moonEvening.X, moonNight.X, moonDawn.X)
 	}
 }
 
@@ -182,9 +286,7 @@ func countRunnerLayers(sprites []graphics.SpriteDrawCommand) map[int]int {
 func countRunnerSunMoonSprites(sprites []graphics.SpriteDrawCommand) int {
 	count := 0
 	for _, sprite := range sprites {
-		x := sprite.Transform.Position.X
-		y := sprite.Transform.Position.Y
-		if sprite.Layer >= 2 && sprite.Layer <= 3 && x >= 1020 && x <= 1120 && y >= 554 && y <= 654 && sprite.Sprite.Material.Emissive > 1 {
+		if sprite.Layer == 3 && sprite.Sprite.Material.Albedo != graphics.InvalidTexture && sprite.Sprite.Material.Emissive > 1 {
 			count++
 		}
 	}
