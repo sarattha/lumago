@@ -158,6 +158,17 @@ func TestSDFShadowRaymarchBlocksAndSoftensOneLight(t *testing.T) {
 	}
 }
 
+func TestSDFShadowStartsAtViewportEntryForOffscreenLights(t *testing.T) {
+	occluder := graphics.SegmentOccluder2D(lmath.Vec2{X: 2, Y: 40}, lmath.Vec2{X: 2, Y: 60}, 1)
+	sdf := buildStaticSDFTextureFromOccluders(sdfTexture{}, []graphics.Occluder2D{occluder}, graphics.DefaultCamera2D(), 100, 100, 2)
+	light := graphics.Light2D{Position: lmath.Vec2{X: -30, Y: 50}, Radius: 120, CastShadows: true}
+
+	got := shadowFactorForLight(lmath.Vec2{X: 40, Y: 50}, 0, []graphics.Light2D{light}, nil, sdf, graphics.ShadowModeSDFExperimental)
+	if got != 0 {
+		t.Fatalf("offscreen light skipped near-edge blocker, shadow=%f want 0", got)
+	}
+}
+
 func TestPackSDFTextureUsesFloat32Distances(t *testing.T) {
 	sdf := sdfTexture{Pixels: []float32{-1.5, 0, 2.25}}
 	data := packSDFTexture(nil, sdf)

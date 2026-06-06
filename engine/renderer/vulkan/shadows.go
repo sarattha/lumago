@@ -263,7 +263,10 @@ func sampleSDFShadow(pixel lmath.Vec2, light graphics.Light2D, sdf sdfTexture) f
 		softness = 12
 	}
 	shadow := float32(1)
-	travel := float32(shadowBiasPixels)
+	travel := sdfViewportEntryTravel(light.Position, dir, distanceToPixel, sdf)
+	if travel < 0 {
+		return 1
+	}
 	for steps := 0; steps < 64 && travel < distanceToPixel; steps++ {
 		samplePoint := light.Position.Add(dir.MulScalar(travel))
 		distance := sampleSDFTexture(sdf, samplePoint)
@@ -276,6 +279,47 @@ func sampleSDFShadow(pixel lmath.Vec2, light graphics.Light2D, sdf sdfTexture) f
 		travel += max32(distance*0.8, sdf.CellSize*0.5)
 	}
 	return clamp32(shadow, 0, 1)
+}
+
+func sdfViewportEntryTravel(origin, dir lmath.Vec2, maxTravel float32, sdf sdfTexture) float32 {
+	minX := float32(0)
+	minY := float32(0)
+	maxX := float32(sdf.Width) * sdf.CellSize
+	maxY := float32(sdf.Height) * sdf.CellSize
+	tMin := float32(0)
+	tMax := maxTravel
+
+	if !clipRayAxis(origin.X, dir.X, minX, maxX, &tMin, &tMax) {
+		return -1
+	}
+	if !clipRayAxis(origin.Y, dir.Y, minY, maxY, &tMin, &tMax) {
+		return -1
+	}
+	if tMax < 0 || tMin > maxTravel {
+		return -1
+	}
+	if tMin > 0 {
+		tMin += min32(sdf.CellSize*0.25, 1)
+	}
+	return max32(tMin, shadowBiasPixels)
+}
+
+func clipRayAxis(origin, dir, minValue, maxValue float32, tMin, tMax *float32) bool {
+	if abs32(dir) < 0.00001 {
+		return origin >= minValue && origin <= maxValue
+	}
+	t1 := (minValue - origin) / dir
+	t2 := (maxValue - origin) / dir
+	if t1 > t2 {
+		t1, t2 = t2, t1
+	}
+	if t1 > *tMin {
+		*tMin = t1
+	}
+	if t2 < *tMax {
+		*tMax = t2
+	}
+	return *tMin <= *tMax
 }
 
 func sampleSDFTexture(sdf sdfTexture, point lmath.Vec2) float32 {
