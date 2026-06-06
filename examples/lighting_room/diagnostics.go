@@ -13,6 +13,7 @@ type diagnosticsRenderer struct {
 	every         int
 	frame         int
 	lastFrameTime time.Duration
+	frameReady    bool
 }
 
 func newDiagnosticsRenderer(next renderer.Renderer, every int) renderer.Renderer {
@@ -29,6 +30,10 @@ func (r *diagnosticsRenderer) BeginFrame(camera graphics.Camera2D) error {
 func (r *diagnosticsRenderer) SetCPUFrameTime(duration time.Duration) {
 	r.lastFrameTime = duration
 	r.next.SetCPUFrameTime(duration)
+	if r.frameReady {
+		r.printOverlay()
+		r.frameReady = false
+	}
 }
 
 func (r *diagnosticsRenderer) SetHotPathAllocBytes(bytes uint64) {
@@ -60,6 +65,11 @@ func (r *diagnosticsRenderer) EndFrame() error {
 		return err
 	}
 	r.frame++
+	r.frameReady = true
+	return nil
+}
+
+func (r *diagnosticsRenderer) printOverlay() {
 	if r.frame%r.every == 0 || r.frame == 1 {
 		stats := r.next.Stats()
 		fmt.Printf("overlay frame=%d cpu_ms=%.3f gpu_ms=%.3f alloc_bytes=%d draws=%d sprites=%d lights=%d occluders=%d debug=%s\n",
@@ -82,7 +92,6 @@ func (r *diagnosticsRenderer) EndFrame() error {
 			)
 		}
 	}
-	return nil
 }
 
 func (r *diagnosticsRenderer) Resize(width, height int) error {

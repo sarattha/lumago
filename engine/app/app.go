@@ -146,13 +146,14 @@ func (g *Game) runFrame() error {
 		return err
 	}
 
+	err := g.renderer.EndFrame()
 	var memEnd runtime.MemStats
 	runtime.ReadMemStats(&memEnd)
 	if memEnd.TotalAlloc >= memStart.TotalAlloc {
 		g.renderer.SetHotPathAllocBytes(memEnd.TotalAlloc - memStart.TotalAlloc)
 	}
 	g.renderer.SetCPUFrameTime(time.Since(frameStart))
-	return g.renderer.EndFrame()
+	return err
 }
 
 func (g *Game) renderViewportSize() (int, int) {

@@ -25,6 +25,7 @@ func (r *NopRenderer) BeginFrame(camera graphics.Camera2D) error {
 
 func (r *NopRenderer) SetCPUFrameTime(duration time.Duration) {
 	r.stats.CPUFrameTime = duration
+	r.printFrameStats()
 }
 
 func (r *NopRenderer) SetHotPathAllocBytes(bytes uint64) {
@@ -60,6 +61,10 @@ func (r *NopRenderer) SubmitOccluders(occluders []graphics.Occluder2D) error {
 }
 
 func (r *NopRenderer) EndFrame() error {
+	return nil
+}
+
+func (r *NopRenderer) printFrameStats() {
 	fmt.Printf("present=nop cpu_ms=%.3f alloc_bytes=%d sprites=%d draws=%d lights=%d occluders=%d debug=%s\n",
 		float64(r.stats.CPUFrameTime.Microseconds())/1000,
 		r.stats.HotPathAllocBytes,
@@ -69,7 +74,6 @@ func (r *NopRenderer) EndFrame() error {
 		r.stats.Occluders,
 		r.stats.DebugView,
 	)
-	return nil
 }
 
 func (r *NopRenderer) Stats() FrameStats {

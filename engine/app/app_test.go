@@ -30,6 +30,22 @@ func TestRunFrameRecordsFrameTimingAndAllocationStats(t *testing.T) {
 	}
 }
 
+func TestRunFrameCPUTimeIncludesEndFrameWork(t *testing.T) {
+	game := NewGame(Config{Width: 64, Height: 64})
+	world := scene.New()
+	world.AddSprite(graphics.SpriteDrawCommand{Sprite: graphics.Sprite{Color: lmath.White()}})
+	game.SetScene(world)
+	fake := &statsRenderer{endFrameDelay: 20 * time.Millisecond}
+	game.SetRenderer(fake)
+
+	if err := game.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if got := game.Stats().CPUFrameTime; got < fake.endFrameDelay {
+		t.Fatalf("cpu frame time=%s, want at least EndFrame delay %s", got, fake.endFrameDelay)
+	}
+}
+
 func TestRunFrameUsesConfiguredViewportForSpriteBatch(t *testing.T) {
 	game := NewGame(Config{Width: 1920, Height: 1080})
 	world := scene.New()
@@ -51,6 +67,7 @@ type statsRenderer struct {
 	stats           renderer.FrameStats
 	batch           graphics.SpriteBatch
 	hotPathAllocSet bool
+	endFrameDelay   time.Duration
 }
 
 func (r *statsRenderer) BeginFrame(camera graphics.Camera2D) error { return nil }
@@ -86,7 +103,12 @@ func (r *statsRenderer) SubmitOccluders(occluders []graphics.Occluder2D) error {
 }
 
 func (r *statsRenderer) Stats() renderer.FrameStats { return r.stats }
-func (r *statsRenderer) EndFrame() error            { return nil }
+func (r *statsRenderer) EndFrame() error {
+	if r.endFrameDelay > 0 {
+		time.Sleep(r.endFrameDelay)
+	}
+	return nil
+}
 func (r *statsRenderer) Resize(width, height int) error {
 	return nil
 }
