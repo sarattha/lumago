@@ -13,6 +13,7 @@ const (
 	packedLightStride      = 48
 	litSpriteGrid          = 8
 	transparentTexelCutoff = 0.01
+	maxLitSpriteTexelCells = 64 * 64
 )
 
 type lightingTargetKind uint8
@@ -322,7 +323,8 @@ func litSpriteTexelGrid(material graphics.Material2D) (litSpriteTexels, bool) {
 	if !ok || albedo.Width <= 1 && albedo.Height <= 1 {
 		return litSpriteTexels{}, false
 	}
-	if albedo.Width*albedo.Height <= 1 {
+	texelCount := albedo.Width * albedo.Height
+	if texelCount <= 1 || texelCount > maxLitSpriteTexelCells {
 		return litSpriteTexels{}, false
 	}
 	return litSpriteTexels{Width: albedo.Width, Height: albedo.Height}, true

@@ -284,6 +284,31 @@ func TestLitSpriteBatchForLightingSkipsTransparentTexels(t *testing.T) {
 	}
 }
 
+func TestLitSpriteBatchForLightingFallsBackForLargeTextures(t *testing.T) {
+	albedo := graphics.TextureID(9022)
+	pixels := make([]lmath.Color, maxLitSpriteTexelCells+1)
+	for i := range pixels {
+		pixels[i] = lmath.White()
+	}
+	graphics.RegisterTextureData(graphics.TextureData{
+		ID:     albedo,
+		Width:  maxLitSpriteTexelCells + 1,
+		Height: 1,
+		Pixels: pixels,
+	})
+	batch := normalizedTexturedSpriteBatch(graphics.Material2D{Albedo: albedo})
+	config := graphics.LightingConfig2D{
+		Ambient:   lmath.White(),
+		DebugView: graphics.DebugViewSceneColor,
+	}
+
+	lit, _, _ := litSpriteBatchForLighting(graphics.SpriteBatch{}, nil, nil, batch, nil, nil, sdfTexture{}, config, vk.Extent2D{Width: 100, Height: 100})
+
+	if lit.Stats.VertexCount != litSpriteVertexCount() || lit.Stats.IndexCount != litSpriteIndexCount() {
+		t.Fatalf("large texture geometry vertices=%d indices=%d, want fixed grid %d/%d", lit.Stats.VertexCount, lit.Stats.IndexCount, litSpriteVertexCount(), litSpriteIndexCount())
+	}
+}
+
 func TestLitSpriteBatchForLightingAppliesShadowMaps(t *testing.T) {
 	batch := singleSpriteBatch(graphics.Material2D{})
 	lights := []graphics.Light2D{

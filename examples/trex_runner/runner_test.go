@@ -14,8 +14,26 @@ func TestRunnerStartsWithJump(t *testing.T) {
 	if !state.Started {
 		t.Fatalf("runner did not start")
 	}
-	if state.PlayerVelY <= 0 {
-		t.Fatalf("player velocity=%.2f, want upward jump", state.PlayerVelY)
+	if state.PlayerVelY >= 0 {
+		t.Fatalf("player velocity=%.2f, want upward jump in screen coordinates", state.PlayerVelY)
+	}
+}
+
+func TestRunnerJumpMovesPlayerUpThenBackToGround(t *testing.T) {
+	state := newRunnerState()
+	state.Started = true
+	state.Obstacles = nil
+
+	state.Step(1.0/runnerTargetFPS, runnerInput{Jump: true})
+	if state.PlayerBottom >= runnerGroundY {
+		t.Fatalf("player bottom=%.2f, want above ground %.2f after jump", state.PlayerBottom, float32(runnerGroundY))
+	}
+
+	for i := 0; i < runnerTargetFPS; i++ {
+		state.Step(1.0/runnerTargetFPS, runnerInput{})
+	}
+	if !state.grounded() {
+		t.Fatalf("player did not return to ground: bottom=%.2f velocity=%.2f", state.PlayerBottom, state.PlayerVelY)
 	}
 }
 
