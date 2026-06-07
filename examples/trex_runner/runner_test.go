@@ -2,9 +2,14 @@ package main
 
 import (
 	"image"
+	"image/color"
+	"image/png"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/sarattha/lumago/engine/app"
+	engineassets "github.com/sarattha/lumago/engine/assets"
 	"github.com/sarattha/lumago/engine/graphics"
 )
 
@@ -132,25 +137,28 @@ func TestRunnerCollisionEndsRunAndRestartResets(t *testing.T) {
 	}
 }
 
-func TestRunnerSceneUsesLightingShadowsAndReadableSpriteRoles(t *testing.T) {
+func TestRunnerSceneUsesReadableSpriteRolesWithoutLighting(t *testing.T) {
 	config := defaultRunnerConfig()
 	game := app.NewGame(app.Config{Width: config.Width, Height: config.Height})
 	state := newRunnerState()
 	world := buildRunnerScene(game, state, config)
 
-	if len(world.Sprites()) < 45 {
+	if len(world.Sprites()) < 32 {
 		t.Fatalf("sprites=%d, want composed runner graphics", len(world.Sprites()))
 	}
-	if len(world.Lights()) != runnerLightCount {
-		t.Fatalf("lights=%d, want %d", len(world.Lights()), runnerLightCount)
+	if len(world.Lights()) != 0 {
+		t.Fatalf("lights=%d, want no runner scene lights", len(world.Lights()))
 	}
-	if countRunnerShadowLights(world.Lights()) != runnerShadowLightCount {
-		t.Fatalf("shadow lights=%d, want %d", countRunnerShadowLights(world.Lights()), runnerShadowLightCount)
-	}
-	if len(world.Occluders()) < len(state.Obstacles)+3 {
-		t.Fatalf("occluders=%d, want ground/player/obstacle shadow casters", len(world.Occluders()))
+	if len(world.Occluders()) != 0 {
+		t.Fatalf("occluders=%d, want no runner shadow occluders", len(world.Occluders()))
 	}
 	counts := countRunnerLayers(world.Sprites())
+	if counts[2] != 0 {
+		t.Fatalf("cloud sprites=%d, want none", counts[2])
+	}
+	if counts[7] != 0 {
+		t.Fatalf("ground shadow sprites=%d, want none", counts[7])
+	}
 	if counts[13] < 1 {
 		t.Fatalf("dino sprite missing: layers=%v", counts)
 	}
@@ -165,6 +173,69 @@ func TestRunnerSceneUsesLightingShadowsAndReadableSpriteRoles(t *testing.T) {
 	}
 	if countRunnerSunMoonSprites(world.Sprites()) < 1 {
 		t.Fatalf("sun/moon sprite missing")
+	}
+}
+
+func TestRunnerRoadSpritesOverlap(t *testing.T) {
+	config := defaultRunnerConfig()
+	game := app.NewGame(app.Config{Width: config.Width, Height: config.Height})
+	state := newRunnerState()
+	state.Distance = 123
+	world := buildRunnerScene(game, state, config)
+
+	var roads []graphics.SpriteDrawCommand
+	for _, sprite := range world.Sprites() {
+		if sprite.Layer == 5 {
+			roads = append(roads, sprite)
+		}
+	}
+	if len(roads) < 3 {
+		t.Fatalf("road sprites=%d, want repeated road segments", len(roads))
+	}
+	for i, road := range roads {
+		if bottom := runnerVisualBottom(road); bottom != runnerTargetHeight {
+			t.Fatalf("road sprite %d bottom=%.2f, want %d", i, bottom, runnerTargetHeight)
+		}
+	}
+	for i := 1; i < len(roads); i++ {
+		prevRight := roads[i-1].Transform.Position.X + roads[i-1].Transform.Scale.X*0.5
+		nextLeft := roads[i].Transform.Position.X - roads[i].Transform.Scale.X*0.5
+		if overlap := prevRight - nextLeft; overlap < runnerRoadOverlap-0.001 {
+			t.Fatalf("road sprites %d/%d overlap=%.2f, want at least %.2f", i-1, i, overlap, float32(runnerRoadOverlap))
+		}
+	}
+}
+
+func TestRunnerRoadBackgroundTouchesBottom(t *testing.T) {
+	config := defaultRunnerConfig()
+	game := app.NewGame(app.Config{Width: config.Width, Height: config.Height})
+	world := buildRunnerScene(game, newRunnerState(), config)
+
+	for _, sprite := range world.Sprites() {
+		if sprite.Layer == 4 {
+			bottom := runnerVisualBottom(sprite)
+			if bottom != runnerTargetHeight {
+				t.Fatalf("road background bottom=%.2f, want %d", bottom, runnerTargetHeight)
+			}
+			return
+		}
+	}
+	t.Fatal("road background sprite missing")
+}
+
+func TestRunnerActorsStandOnRoad(t *testing.T) {
+	config := defaultRunnerConfig()
+	game := app.NewGame(app.Config{Width: config.Width, Height: config.Height})
+	world := buildRunnerScene(game, newRunnerState(), config)
+	roadTop := runnerVisualTop(findFirstLayerSprite(t, world.Sprites(), 5))
+
+	dino := findFirstLayerSprite(t, world.Sprites(), 13)
+	if bottom := runnerVisualBottom(dino); bottom <= roadTop {
+		t.Fatalf("dino bottom=%.2f, want below road top %.2f", bottom, roadTop)
+	}
+	rock := findFirstLayerSprite(t, world.Sprites(), 9)
+	if bottom := runnerVisualBottom(rock); bottom <= roadTop {
+		t.Fatalf("rock bottom=%.2f, want below road top %.2f", bottom, roadTop)
 	}
 }
 
@@ -186,7 +257,7 @@ func TestRunnerLoadsVisualAssetTextures(t *testing.T) {
 		{Name: "sky/night-sky.png", Kind: "sky", Src: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36},
 		{Name: "sun.png", Kind: "sun", Src: image.Rect(130, 70, 930, 960), Width: 56, Height: 64},
 		{Name: "moon.png", Kind: "moon", Src: image.Rect(120, 80, 930, 940), Width: 56, Height: 64},
-		{Name: "road.png", Kind: "road", Src: image.Rect(0, 390, 1536, 650), Width: 64, Height: 14},
+		{Name: "road.png", Kind: "road", Src: image.Rect(96, 410, 1440, 600), Width: 64, Height: 14},
 		{Name: "rock.png", Kind: "rock", Src: image.Rect(300, 285, 1220, 820), Width: 56, Height: 40},
 		{Name: "dino.png", Kind: "dino", Src: image.Rect(180, 170, 1260, 840), Width: 64, Height: 40},
 	} {
@@ -201,6 +272,159 @@ func TestRunnerLoadsVisualAssetTextures(t *testing.T) {
 		if info.Width*info.Height > 64*64 {
 			t.Fatalf("%s has %d texels, want Vulkan texel lighting path limit <=4096", path, info.Width*info.Height)
 		}
+	}
+}
+
+func TestRunnerSkyUsesGeneratedDetailedTexture(t *testing.T) {
+	config := defaultRunnerConfig()
+	game := app.NewGame(app.Config{Width: config.Width, Height: config.Height})
+	buildRunnerScene(game, newRunnerState(), config)
+
+	path := runnerProcessedAssetPath("sky/dawn-sky.png", "sky", image.Rect(0, 0, 1672, 941), 64, 36)
+	info, ok := game.Assets.TextureByPath(path)
+	if !ok {
+		t.Fatalf("%s was not loaded", path)
+	}
+	data, ok := graphics.RegisteredTextureData(info.ID)
+	if !ok {
+		t.Fatalf("%s texture data was not registered", path)
+	}
+	if data.Width*data.Height > 4096 {
+		t.Fatalf("sky texels=%d, want CPU texel path size <=4096", data.Width*data.Height)
+	}
+	if distinctTextureColors(data) < 64 {
+		t.Fatalf("sky texture has too few distinct colors; likely lost detail")
+	}
+}
+
+func TestRunnerLoadsAssetManifest(t *testing.T) {
+	catalog, err := loadRunnerAssetCatalog(defaultAssetMetadataPath)
+	if err != nil {
+		t.Fatalf("loadRunnerAssetCatalog returned error: %v", err)
+	}
+	if !catalog.Ready {
+		t.Fatal("asset catalog is not ready")
+	}
+	if len(catalog.Manifest.Textures) != 9 || len(catalog.Manifest.Sprites) != 9 {
+		t.Fatalf("manifest textures=%d sprites=%d, want 9 each", len(catalog.Manifest.Textures), len(catalog.Manifest.Sprites))
+	}
+	sprite, ok := catalog.SpritesByName["dino_run"]
+	if !ok {
+		t.Fatal("dino_run sprite missing from manifest")
+	}
+	if sprite.Rect != (engineassets.AssetRect{X: 180, Y: 170, W: 1080, H: 670}) {
+		t.Fatalf("dino_run rect=%+v", sprite.Rect)
+	}
+	texture, ok := catalog.TexturesByID[sprite.TextureID]
+	if !ok {
+		t.Fatalf("texture id %q missing for dino_run", sprite.TextureID)
+	}
+	if texture.Filter != "nearest" || texture.Wrap != "clamp_to_edge" {
+		t.Fatalf("dino texture sampling=%s/%s, want nearest/clamp_to_edge", texture.Filter, texture.Wrap)
+	}
+	if texture.TileSize.W != 16 || texture.TileSize.H != 16 || texture.PixelsPerUnit != 16 {
+		t.Fatalf("dino texture profile ppu=%d tile=%+v, want 16 and 16x16", texture.PixelsPerUnit, texture.TileSize)
+	}
+	if len(catalog.Manifest.Atlases) != 1 || catalog.Manifest.Atlases[0].Padding != 2 || catalog.Manifest.Atlases[0].Extrusion != 1 {
+		t.Fatalf("atlas bleed metadata missing: %+v", catalog.Manifest.Atlases)
+	}
+	if len(catalog.Manifest.NormalMaps) != 9 {
+		t.Fatalf("neutral fallback normals=%d, want 9", len(catalog.Manifest.NormalMaps))
+	}
+}
+
+func TestRunnerRoadTextureDoesNotIncludeCheckerMargins(t *testing.T) {
+	config := defaultRunnerConfig()
+	game := app.NewGame(app.Config{Width: config.Width, Height: config.Height})
+	buildRunnerScene(game, newRunnerState(), config)
+
+	path := runnerProcessedAssetPath("road.png", "road", image.Rect(96, 410, 1440, 600), 64, 14)
+	info, ok := game.Assets.TextureByPath(path)
+	if !ok {
+		t.Fatalf("%s was not loaded", path)
+	}
+	data, ok := graphics.RegisteredTextureData(info.ID)
+	if !ok {
+		t.Fatalf("%s texture data was not registered", path)
+	}
+	for y := 0; y < data.Height; y++ {
+		for _, x := range []int{0, data.Width - 1} {
+			pixel := data.Pixels[y*data.Width+x]
+			if pixel.A > 0.01 && maxColor(pixel) > 0.86 && colorSaturation(pixel) < 0.08 {
+				t.Fatalf("road edge pixel x=%d y=%d still looks like checker background: %+v", x, y, pixel)
+			}
+		}
+	}
+	if opaqueRoadPixelsInColumn(data, 0) < data.Height/2 {
+		t.Fatalf("road left edge has too few opaque road pixels")
+	}
+	if opaqueRoadPixelsInColumn(data, data.Width-1) < data.Height/2 {
+		t.Fatalf("road right edge has too few opaque road pixels")
+	}
+}
+
+func TestRunnerConfigAcceptsAssetMetadataOverride(t *testing.T) {
+	t.Setenv("LUMAGO_ASSET_METADATA", "custom/assets.json")
+
+	config := defaultRunnerConfig()
+	applyRunnerEnvironment(&config)
+
+	if config.AssetMetadata != "custom/assets.json" {
+		t.Fatalf("asset metadata path=%q, want environment override", config.AssetMetadata)
+	}
+}
+
+func TestPrepareRunnerAssetsEnablesDevelopmentHotReload(t *testing.T) {
+	config := defaultRunnerConfig()
+	config.Development = true
+
+	catalog, reloader, err := prepareRunnerAssets(config)
+	if err != nil {
+		t.Fatalf("prepareRunnerAssets returned error: %v", err)
+	}
+	if !catalog.Ready {
+		t.Fatal("catalog is not ready")
+	}
+	if reloader == nil {
+		t.Fatal("development mode did not create a hot reloader")
+	}
+	if _, err := os.Stat(reloader.BaseDir()); err != nil {
+		t.Fatalf("reloader base dir is invalid: %v", err)
+	}
+}
+
+func TestRunnerGeneratedTextureKeyIncludesReloadRevision(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hot.png")
+	writeRunnerPNG(t, path, color.RGBA{R: 255, A: 255})
+
+	game := app.NewGame(app.Config{Width: runnerTargetWidth, Height: runnerTargetHeight})
+	src := image.Rect(0, 0, 2, 2)
+	first := runnerMaterialRegion(game, "hot.png", path, "hot", src, 2, 2, 0.5, 0, nil, 0)
+	firstData, ok := graphics.RegisteredTextureData(first.Albedo)
+	if !ok {
+		t.Fatal("first generated texture data missing")
+	}
+	if firstData.Pixels[0].R <= 0.99 {
+		t.Fatalf("first pixel=%+v, want red", firstData.Pixels[0])
+	}
+
+	writeRunnerPNG(t, path, color.RGBA{B: 255, A: 255})
+	cached := runnerMaterialRegion(game, "hot.png", path, "hot", src, 2, 2, 0.5, 0, nil, 0)
+	if cached.Albedo != first.Albedo {
+		t.Fatalf("same revision texture id=%d, want cached id %d", cached.Albedo, first.Albedo)
+	}
+
+	reloaded := runnerMaterialRegion(game, "hot.png", path, "hot", src, 2, 2, 0.5, 0, nil, 1)
+	if reloaded.Albedo == first.Albedo {
+		t.Fatalf("reload revision reused stale texture id %d", reloaded.Albedo)
+	}
+	reloadedData, ok := graphics.RegisteredTextureData(reloaded.Albedo)
+	if !ok {
+		t.Fatal("reloaded generated texture data missing")
+	}
+	if reloadedData.Pixels[0].B <= 0.99 {
+		t.Fatalf("reloaded pixel=%+v, want blue", reloadedData.Pixels[0])
 	}
 }
 
@@ -265,16 +489,6 @@ func TestRunnerTimeOfDayMovesSunAndMoonRightToLeft(t *testing.T) {
 	}
 }
 
-func countRunnerShadowLights(lights []graphics.Light2D) int {
-	count := 0
-	for _, light := range lights {
-		if light.CastShadows {
-			count++
-		}
-	}
-	return count
-}
-
 func countRunnerLayers(sprites []graphics.SpriteDrawCommand) map[int]int {
 	counts := map[int]int{}
 	for _, sprite := range sprites {
@@ -313,4 +527,67 @@ func equalBoolSlices(a, b []bool) bool {
 		}
 	}
 	return true
+}
+
+func opaqueRoadPixelsInColumn(data graphics.TextureData, x int) int {
+	count := 0
+	for y := 0; y < data.Height; y++ {
+		if data.Pixels[y*data.Width+x].A > 0.99 {
+			count++
+		}
+	}
+	return count
+}
+
+func runnerVisualBottom(sprite graphics.SpriteDrawCommand) float32 {
+	return runnerTargetHeight - (sprite.Transform.Position.Y - sprite.Transform.Scale.Y*0.5)
+}
+
+func runnerVisualTop(sprite graphics.SpriteDrawCommand) float32 {
+	return runnerTargetHeight - (sprite.Transform.Position.Y + sprite.Transform.Scale.Y*0.5)
+}
+
+func findFirstLayerSprite(t *testing.T, sprites []graphics.SpriteDrawCommand, layer int) graphics.SpriteDrawCommand {
+	t.Helper()
+	for _, sprite := range sprites {
+		if sprite.Layer == layer {
+			return sprite
+		}
+	}
+	t.Fatalf("sprite layer %d missing", layer)
+	return graphics.SpriteDrawCommand{}
+}
+
+func distinctTextureColors(data graphics.TextureData) int {
+	seen := map[[4]int]bool{}
+	for _, pixel := range data.Pixels {
+		key := [4]int{
+			int(pixel.R * 255),
+			int(pixel.G * 255),
+			int(pixel.B * 255),
+			int(pixel.A * 255),
+		}
+		seen[key] = true
+	}
+	return len(seen)
+}
+
+func writeRunnerPNG(t *testing.T, path string, pixel color.RGBA) {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, 2, 2))
+	for y := 0; y < 2; y++ {
+		for x := 0; x < 2; x++ {
+			img.Set(x, y, pixel)
+		}
+	}
+	file, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := png.Encode(file, img); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
 }

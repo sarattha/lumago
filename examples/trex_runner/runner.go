@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/sarattha/lumago/engine/app"
+	engineassets "github.com/sarattha/lumago/engine/assets"
 	"github.com/sarattha/lumago/engine/graphics"
 	lmath "github.com/sarattha/lumago/engine/math"
 	"github.com/sarattha/lumago/engine/scene"
@@ -17,7 +18,7 @@ const (
 	runnerTargetWidth  = 1280
 	runnerTargetHeight = 720
 	runnerTargetFPS    = 60
-	runnerGroundY      = 220
+	runnerGroundY      = 185
 	runnerDinoX        = 210
 	runnerGravity      = -3000
 	runnerJumpVelocity = 1060
@@ -25,9 +26,8 @@ const (
 	runnerMaxSpeed     = 930
 	runnerDayCycle     = 48
 	runnerRoadWidth    = 760
-
-	runnerLightCount       = 3
-	runnerShadowLightCount = 1
+	runnerRoadHeight   = 220
+	runnerRoadOverlap  = 12
 )
 
 type runnerInput struct {
@@ -48,7 +48,6 @@ type runnerState struct {
 	PlayerVelY   float32
 	Ducking      bool
 	Obstacles    []runnerObstacle
-	Clouds       []runnerCloud
 	spawnTimer   float32
 	spawnIndex   int
 }
@@ -58,18 +57,11 @@ type runnerObstacleKind uint8
 const (
 	runnerObstacleCactus runnerObstacleKind = iota
 	runnerObstacleCactusCluster
-	runnerObstacleBird
 )
 
 type runnerObstacle struct {
 	Kind runnerObstacleKind
 	X    float32
-}
-
-type runnerCloud struct {
-	X     float32
-	Y     float32
-	Scale float32
 }
 
 func newRunnerState() runnerState {
@@ -93,11 +85,6 @@ func (s *runnerState) Reset() {
 	s.Obstacles = []runnerObstacle{
 		{Kind: runnerObstacleCactus, X: 780},
 		{Kind: runnerObstacleCactusCluster, X: 1120},
-	}
-	s.Clouds = []runnerCloud{
-		{X: 170, Y: 575, Scale: 1.0},
-		{X: 520, Y: 620, Scale: 1.25},
-		{X: 915, Y: 550, Scale: 0.9},
 	}
 }
 
@@ -147,13 +134,6 @@ func (s *runnerState) Step(dt float32, input runnerInput) {
 	if s.spawnTimer <= 0 {
 		s.spawnObstacle()
 	}
-	for i := range s.Clouds {
-		s.Clouds[i].X -= s.Speed * dt * (0.12 + 0.03*float32(i%2))
-		if s.Clouds[i].X < -120 {
-			s.Clouds[i].X = runnerTargetWidth + 120 + float32(i*90)
-		}
-	}
-
 	player := s.playerRect()
 	for _, obstacle := range s.Obstacles {
 		if rectsOverlap(player, obstacle.Rect()) {
@@ -222,41 +202,142 @@ type runnerMaterialSet struct {
 
 func buildRunnerScene(game *app.Game, state runnerState, config runnerConfig) *scene.Scene {
 	world := scene.New()
-	world.SetLightingConfig(graphics.LightingConfig2D{
-		Ambient:    runnerAmbient(state.Time),
-		DebugView:  config.DebugView,
-		ShadowMode: config.ShadowMode,
-	})
-	materials := runnerMaterials(game)
+	materials := runnerMaterials(game, config)
 	addRunnerSky(world, state, materials)
 	addRunnerTrack(world, state, materials)
 	addRunnerObstacles(world, state, materials)
 	addRunnerDino(world, state, materials)
 	addRunnerScore(world, state)
-	addRunnerLights(world, state)
-	addRunnerOccluders(world, state)
 	return world
 }
 
-func runnerMaterials(game *app.Game) runnerMaterialSet {
+type runnerAssetCatalog struct {
+	Ready         bool
+	BaseDir       string
+	Revision      int
+	Manifest      engineassets.AssetManifest
+	TexturesByID  map[string]engineassets.ManifestTexture
+	SpritesByName map[string]engineassets.ManifestSprite
+}
+
+type runnerMaterialSpec struct {
+	Sprite         string
+	Variant        string
+	FallbackSource string
+	FallbackSrc    image.Rectangle
+	Width          int
+	Height         int
+	Roughness      float32
+	Emissive       float32
+	Alpha          runnerAlphaFunc
+}
+
+func runnerMaterials(game *app.Game, config runnerConfig) runnerMaterialSet {
+	catalog := config.AssetCatalog
+	if !catalog.Ready {
+		if loaded, err := loadRunnerAssetCatalog(config.AssetMetadata); err == nil {
+			catalog = loaded
+		}
+	}
 	return runnerMaterialSet{
-		SkyDawn:    runnerMaterialRegion(game, "sky/dawn-sky.png", "sky", image.Rect(0, 0, 1672, 941), 64, 36, 0.92, 0.10, runnerKeepOpaque),
-		SkyNoon:    runnerMaterialRegion(game, "sky/noon-sky.png", "sky", image.Rect(0, 0, 1672, 941), 64, 36, 0.92, 0.16, runnerKeepOpaque),
-		SkyEvening: runnerMaterialRegion(game, "sky/evening-sky.png", "sky", image.Rect(0, 0, 1672, 941), 64, 36, 0.92, 0.12, runnerKeepOpaque),
-		SkyNight:   runnerMaterialRegion(game, "sky/night-sky.png", "sky", image.Rect(0, 0, 1672, 941), 64, 36, 0.92, 0.04, runnerKeepOpaque),
-		Sun:        runnerMaterialRegion(game, "sun.png", "sun", image.Rect(130, 70, 930, 960), 56, 64, 0.25, 2.8, runnerBrightAlpha),
-		Moon:       runnerMaterialRegion(game, "moon.png", "moon", image.Rect(120, 80, 930, 940), 56, 64, 0.30, 1.8, runnerBrightAlpha),
-		Road:       runnerMaterialRegion(game, "road.png", "road", image.Rect(0, 390, 1536, 650), 64, 14, 0.58, 0.03, runnerKeepOpaque),
-		Rock:       runnerMaterialRegion(game, "rock.png", "rock", image.Rect(300, 285, 1220, 820), 56, 40, 0.68, 0.04, runnerRockAlpha),
-		Dino:       runnerMaterialRegion(game, "dino.png", "dino", image.Rect(180, 170, 1260, 840), 64, 40, 0.42, 0.10, runnerDinoAlpha),
+		SkyDawn: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
+			Sprite: "sky_dawn_full", Variant: "sky", FallbackSource: "sky/dawn-sky.png", FallbackSrc: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36, Roughness: 0.92, Emissive: 0.10, Alpha: runnerKeepOpaque,
+		}),
+		SkyNoon: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
+			Sprite: "sky_noon_full", Variant: "sky", FallbackSource: "sky/noon-sky.png", FallbackSrc: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36, Roughness: 0.92, Emissive: 0.16, Alpha: runnerKeepOpaque,
+		}),
+		SkyEvening: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
+			Sprite: "sky_evening_full", Variant: "sky", FallbackSource: "sky/evening-sky.png", FallbackSrc: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36, Roughness: 0.92, Emissive: 0.12, Alpha: runnerKeepOpaque,
+		}),
+		SkyNight: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
+			Sprite: "sky_night_full", Variant: "sky", FallbackSource: "sky/night-sky.png", FallbackSrc: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36, Roughness: 0.92, Emissive: 0.04, Alpha: runnerKeepOpaque,
+		}),
+		Sun: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
+			Sprite: "sun_disc", Variant: "sun", FallbackSource: "sun.png", FallbackSrc: image.Rect(130, 70, 930, 960), Width: 56, Height: 64, Roughness: 0.25, Emissive: 2.8, Alpha: runnerBrightAlpha,
+		}),
+		Moon: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
+			Sprite: "moon_disc", Variant: "moon", FallbackSource: "moon.png", FallbackSrc: image.Rect(120, 80, 930, 940), Width: 56, Height: 64, Roughness: 0.30, Emissive: 1.8, Alpha: runnerBrightAlpha,
+		}),
+		Road: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
+			Sprite: "road_strip", Variant: "road", FallbackSource: "road.png", FallbackSrc: image.Rect(96, 410, 1440, 600), Width: 64, Height: 14, Roughness: 0.58, Emissive: 0.03, Alpha: runnerRoadAlpha,
+		}),
+		Rock: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
+			Sprite: "rock_obstacle", Variant: "rock", FallbackSource: "rock.png", FallbackSrc: image.Rect(300, 285, 1220, 820), Width: 56, Height: 40, Roughness: 0.68, Emissive: 0.04, Alpha: runnerRockAlpha,
+		}),
+		Dino: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
+			Sprite: "dino_run", Variant: "dino", FallbackSource: "dino.png", FallbackSrc: image.Rect(180, 170, 1260, 840), Width: 64, Height: 40, Roughness: 0.42, Emissive: 0.10, Alpha: runnerDinoAlpha,
+		}),
 	}
 }
 
 type runnerAlphaFunc func(x, y, width, height int, color lmath.Color) float32
 
-func runnerMaterialRegion(game *app.Game, name, variant string, src image.Rectangle, width, height int, roughness, emissive float32, alpha runnerAlphaFunc) graphics.Material2D {
-	path := runnerAssetPath(name)
-	key := runnerProcessedAssetPath(name, variant, src, width, height)
+func loadRunnerAssetCatalog(path string) (runnerAssetCatalog, error) {
+	metadataPath := resolveRunnerAssetMetadataPath(path)
+	manifest, err := engineassets.ImportAssetMetadataFile(metadataPath)
+	if err != nil {
+		return runnerAssetCatalog{}, err
+	}
+	return runnerAssetCatalogFromManifest(manifest, filepath.Dir(metadataPath)), nil
+}
+
+func runnerAssetCatalogFromManifest(manifest engineassets.AssetManifest, baseDir string) runnerAssetCatalog {
+	return runnerAssetCatalogFromManifestRevision(manifest, baseDir, 0)
+}
+
+func runnerAssetCatalogFromManifestRevision(manifest engineassets.AssetManifest, baseDir string, revision int) runnerAssetCatalog {
+	catalog := runnerAssetCatalog{
+		Ready:         true,
+		BaseDir:       baseDir,
+		Revision:      revision,
+		Manifest:      manifest,
+		TexturesByID:  make(map[string]engineassets.ManifestTexture, len(manifest.Textures)),
+		SpritesByName: make(map[string]engineassets.ManifestSprite, len(manifest.Sprites)),
+	}
+	for _, texture := range manifest.Textures {
+		catalog.TexturesByID[texture.ID] = texture
+	}
+	for _, sprite := range manifest.Sprites {
+		catalog.SpritesByName[sprite.Name] = sprite
+	}
+	return catalog
+}
+
+func resolveRunnerAssetMetadataPath(path string) string {
+	if path != "" {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+	if _, err := os.Stat(defaultAssetMetadataPath); err == nil {
+		return defaultAssetMetadataPath
+	}
+	return fallbackAssetMetadataPath
+}
+
+func runnerMaterialFromSpec(game *app.Game, catalog runnerAssetCatalog, spec runnerMaterialSpec) graphics.Material2D {
+	if catalog.Ready {
+		if sprite, ok := catalog.SpritesByName[spec.Sprite]; ok {
+			if texture, ok := catalog.TexturesByID[sprite.TextureID]; ok {
+				path := runnerCatalogAssetPath(catalog, texture.Source)
+				src := image.Rect(sprite.Rect.X, sprite.Rect.Y, sprite.Rect.X+sprite.Rect.W, sprite.Rect.Y+sprite.Rect.H)
+				return runnerMaterialRegion(game, texture.Source, path, spec.Variant, src, spec.Width, spec.Height, spec.Roughness, spec.Emissive, spec.Alpha, catalog.Revision)
+			}
+		}
+	}
+	path := runnerAssetPath(spec.FallbackSource)
+	return runnerMaterialRegion(game, spec.FallbackSource, path, spec.Variant, spec.FallbackSrc, spec.Width, spec.Height, spec.Roughness, spec.Emissive, spec.Alpha, catalog.Revision)
+}
+
+func runnerCatalogAssetPath(catalog runnerAssetCatalog, source string) string {
+	if filepath.IsAbs(source) {
+		return source
+	}
+	return filepath.Join(catalog.BaseDir, filepath.FromSlash(source))
+}
+
+func runnerMaterialRegion(game *app.Game, name, path, variant string, src image.Rectangle, width, height int, roughness, emissive float32, alpha runnerAlphaFunc, revision int) graphics.Material2D {
+	key := runnerProcessedAssetKey(name, variant, src, width, height, revision)
 	if info, ok := game.Assets.TextureByPath(key); ok {
 		return graphics.Material2D{
 			Albedo:    info.ID,
@@ -273,6 +354,14 @@ func runnerMaterialRegion(game *app.Game, name, variant string, src image.Rectan
 
 func runnerProcessedAssetPath(name, variant string, src image.Rectangle, width, height int) string {
 	return filepath.Join("generated", "trex_runner", variant, name) + "#" + src.String() + "@" + runnerTextureSizeKey(width, height)
+}
+
+func runnerProcessedAssetKey(name, variant string, src image.Rectangle, width, height, revision int) string {
+	key := runnerProcessedAssetPath(name, variant, src, width, height)
+	if revision <= 0 {
+		return key
+	}
+	return key + "#reload=" + fmt.Sprint(revision)
 }
 
 func runnerTextureSizeKey(width, height int) string {
@@ -330,6 +419,13 @@ func runnerFallbackPixels(width, height int) []lmath.Color {
 }
 
 func runnerKeepOpaque(x, y, width, height int, color lmath.Color) float32 {
+	return 1
+}
+
+func runnerRoadAlpha(x, y, width, height int, color lmath.Color) float32 {
+	if maxColor(color) > 0.86 && colorSaturation(color) < 0.08 {
+		return 0
+	}
 	return 1
 }
 
@@ -396,17 +492,7 @@ func runnerAssetPath(name string) string {
 func addRunnerSky(world *scene.Scene, state runnerState, materials runnerMaterialSet) {
 	material, color := runnerSkyMaterialAndTint(materials, state.Time)
 	addRunnerSprite(world, material, lmath.Rect{W: 1, H: 1}, 640, 360, 1280, 720, color, 0, 0)
-	for _, cloud := range state.Clouds {
-		addRunnerCloud(world, cloud)
-	}
 	addRunnerSunMoon(world, state, materials)
-}
-
-func addRunnerCloud(world *scene.Scene, cloud runnerCloud) {
-	c := lmath.Color{R: 0.78, G: 0.86, B: 0.96, A: 1}
-	addRunnerRect(world, cloud.X, cloud.Y, 92*cloud.Scale, 22*cloud.Scale, c, 2, 0.45)
-	addRunnerRect(world, cloud.X-28*cloud.Scale, cloud.Y-12*cloud.Scale, 34*cloud.Scale, 28*cloud.Scale, c, 2, 0.45)
-	addRunnerRect(world, cloud.X+16*cloud.Scale, cloud.Y-18*cloud.Scale, 44*cloud.Scale, 36*cloud.Scale, c, 2, 0.45)
 }
 
 func addRunnerSunMoon(world *scene.Scene, state runnerState, materials runnerMaterialSet) {
@@ -421,10 +507,12 @@ func addRunnerSunMoon(world *scene.Scene, state runnerState, materials runnerMat
 }
 
 func addRunnerTrack(world *scene.Scene, state runnerState, materials runnerMaterialSet) {
-	addRunnerRect(world, 640, runnerGroundY-76, 1280, 118, lmath.Color{R: 0.14, G: 0.11, B: 0.09, A: 1}, 4, 0)
-	offset := float32(math.Mod(float64(state.Distance), runnerRoadWidth))
-	for x := -offset - runnerRoadWidth; x < runnerTargetWidth+runnerRoadWidth; x += runnerRoadWidth {
-		addRunnerSprite(world, materials.Road, lmath.Rect{W: 1, H: 1}, x+runnerRoadWidth/2, runnerGroundY-58, runnerRoadWidth, 164, lmath.White(), 5, 0.04)
+	roadCenterY := float32(runnerRoadHeight / 2)
+	addRunnerRect(world, 640, roadCenterY, 1280, runnerRoadHeight, lmath.Color{R: 0.14, G: 0.11, B: 0.09, A: 1}, 4, 0)
+	roadStep := runnerRoadWidth - runnerRoadOverlap
+	offset := float32(math.Mod(float64(state.Distance), float64(roadStep)))
+	for x := -offset - float32(roadStep); x < runnerTargetWidth+runnerRoadWidth; x += float32(roadStep) {
+		addRunnerSprite(world, materials.Road, lmath.Rect{W: 1, H: 1}, x+runnerRoadWidth/2, roadCenterY, runnerRoadWidth, runnerRoadHeight, lmath.White(), 5, 0.04)
 	}
 }
 
@@ -441,14 +529,12 @@ func addRunnerObstacles(world *scene.Scene, state runnerState, materials runnerM
 }
 
 func addRunnerRock(world *scene.Scene, materials runnerMaterialSet, x, height, scale, rotation float32) {
-	addRunnerRect(world, x, runnerGroundY-5, 78*scale, 18*scale, lmath.Color{R: 0.03, G: 0.03, B: 0.03, A: 0.45}, 7, 0)
 	addRunnerSpriteRotated(world, materials.Rock, lmath.Rect{W: 1, H: 1}, x, runnerGroundY+height/2-3, height*1.28*scale, height*scale, rotation, lmath.White(), 9, 0.02)
 }
 
 func addRunnerDino(world *scene.Scene, state runnerState, materials runnerMaterialSet) {
 	rect := state.playerRect()
 	x := rect.X + rect.W/2
-	addRunnerRect(world, x, state.PlayerBottom-10, 126, 18, lmath.Color{R: 0.00, G: 0.00, B: 0.00, A: 0.45}, 7, 0)
 	if state.Ducking {
 		addRunnerSprite(world, materials.Dino, lmath.Rect{W: 1, H: 1}, x+6, state.PlayerBottom+48, 168, 118, lmath.White(), 13, 0.12)
 		return
@@ -523,32 +609,6 @@ func addRunnerDigit(world *scene.Scene, x, y float32, digit int) {
 			addRunnerRect(world, x, y+2, 20, 5, c, 22, 1.8)
 		}
 	}
-}
-
-func addRunnerLights(world *scene.Scene, state runnerState) {
-	keyPosition := runnerSunPosition(state.Time)
-	keyColor := lmath.Color{R: 1.00, G: 0.82, B: 0.46, A: 1}
-	keyIntensity := float32(1.22)
-	if !runnerSunVisible(state.Time) {
-		keyPosition = runnerMoonPosition(state.Time)
-		keyColor = lmath.Color{R: 0.56, G: 0.68, B: 1.00, A: 1}
-		keyIntensity = 0.86
-	}
-	world.SetLights([]graphics.Light2D{
-		{Position: keyPosition, Radius: 760, Color: keyColor, Intensity: keyIntensity, Falloff: 1.55, CastShadows: true},
-		{Position: lmath.Vec2{X: 330, Y: runnerGroundY - 10}, Radius: 260, Color: lmath.Color{R: 1.00, G: 0.78, B: 0.38, A: 1}, Intensity: 0.48, Falloff: 1.7},
-		{Position: lmath.Vec2{X: 930, Y: runnerGroundY - 10}, Radius: 310, Color: lmath.Color{R: 0.42, G: 0.62, B: 1.00, A: 1}, Intensity: 0.46, Falloff: 1.7},
-	})
-}
-
-func addRunnerOccluders(world *scene.Scene, state runnerState) {
-	world.AddOccluder(graphics.RectOccluder2D(lmath.Rect{X: 0, Y: runnerGroundY - 92, W: runnerTargetWidth, H: 92}, 1))
-	player := state.playerRect()
-	world.AddOccluder(graphics.RectOccluder2D(player, 2))
-	for _, obstacle := range state.Obstacles {
-		world.AddOccluder(graphics.RectOccluder2D(obstacle.Rect(), 2))
-	}
-	world.AddOccluder(graphics.SegmentOccluder2D(lmath.Vec2{X: 150, Y: runnerGroundY - 10}, lmath.Vec2{X: 1130, Y: runnerGroundY - 10}, 1))
 }
 
 func addRunnerRect(world *scene.Scene, x, y, w, h float32, color lmath.Color, layer int, emissive float32) {
