@@ -47,7 +47,6 @@ type runnerState struct {
 	PlayerVelY   float32
 	Ducking      bool
 	Obstacles    []runnerObstacle
-	Clouds       []runnerCloud
 	spawnTimer   float32
 	spawnIndex   int
 }
@@ -62,12 +61,6 @@ const (
 type runnerObstacle struct {
 	Kind runnerObstacleKind
 	X    float32
-}
-
-type runnerCloud struct {
-	X     float32
-	Y     float32
-	Scale float32
 }
 
 func newRunnerState() runnerState {
@@ -91,11 +84,6 @@ func (s *runnerState) Reset() {
 	s.Obstacles = []runnerObstacle{
 		{Kind: runnerObstacleCactus, X: 780},
 		{Kind: runnerObstacleCactusCluster, X: 1120},
-	}
-	s.Clouds = []runnerCloud{
-		{X: 170, Y: 575, Scale: 1.0},
-		{X: 520, Y: 620, Scale: 1.25},
-		{X: 915, Y: 550, Scale: 0.9},
 	}
 }
 
@@ -145,13 +133,6 @@ func (s *runnerState) Step(dt float32, input runnerInput) {
 	if s.spawnTimer <= 0 {
 		s.spawnObstacle()
 	}
-	for i := range s.Clouds {
-		s.Clouds[i].X -= s.Speed * dt * (0.12 + 0.03*float32(i%2))
-		if s.Clouds[i].X < -120 {
-			s.Clouds[i].X = runnerTargetWidth + 120 + float32(i*90)
-		}
-	}
-
 	player := s.playerRect()
 	for _, obstacle := range s.Obstacles {
 		if rectsOverlap(player, obstacle.Rect()) {
@@ -495,17 +476,7 @@ func runnerAssetPath(name string) string {
 func addRunnerSky(world *scene.Scene, state runnerState, materials runnerMaterialSet) {
 	material, color := runnerSkyMaterialAndTint(materials, state.Time)
 	addRunnerSprite(world, material, lmath.Rect{W: 1, H: 1}, 640, 360, 1280, 720, color, 0, 0)
-	for _, cloud := range state.Clouds {
-		addRunnerCloud(world, cloud)
-	}
 	addRunnerSunMoon(world, state, materials)
-}
-
-func addRunnerCloud(world *scene.Scene, cloud runnerCloud) {
-	c := lmath.Color{R: 0.78, G: 0.86, B: 0.96, A: 1}
-	addRunnerRect(world, cloud.X, cloud.Y, 92*cloud.Scale, 22*cloud.Scale, c, 2, 0.45)
-	addRunnerRect(world, cloud.X-28*cloud.Scale, cloud.Y-12*cloud.Scale, 34*cloud.Scale, 28*cloud.Scale, c, 2, 0.45)
-	addRunnerRect(world, cloud.X+16*cloud.Scale, cloud.Y-18*cloud.Scale, 44*cloud.Scale, 36*cloud.Scale, c, 2, 0.45)
 }
 
 func addRunnerSunMoon(world *scene.Scene, state runnerState, materials runnerMaterialSet) {
