@@ -134,7 +134,7 @@ func TestRunnerCollisionEndsRunAndRestartResets(t *testing.T) {
 	}
 }
 
-func TestRunnerSceneUsesLightingShadowsAndReadableSpriteRoles(t *testing.T) {
+func TestRunnerSceneUsesReadableSpriteRolesWithoutLighting(t *testing.T) {
 	config := defaultRunnerConfig()
 	game := app.NewGame(app.Config{Width: config.Width, Height: config.Height})
 	state := newRunnerState()
@@ -143,14 +143,11 @@ func TestRunnerSceneUsesLightingShadowsAndReadableSpriteRoles(t *testing.T) {
 	if len(world.Sprites()) < 45 {
 		t.Fatalf("sprites=%d, want composed runner graphics", len(world.Sprites()))
 	}
-	if len(world.Lights()) != runnerLightCount {
-		t.Fatalf("lights=%d, want %d", len(world.Lights()), runnerLightCount)
+	if len(world.Lights()) != 0 {
+		t.Fatalf("lights=%d, want no runner scene lights", len(world.Lights()))
 	}
-	if countRunnerShadowLights(world.Lights()) != runnerShadowLightCount {
-		t.Fatalf("shadow lights=%d, want %d", countRunnerShadowLights(world.Lights()), runnerShadowLightCount)
-	}
-	if len(world.Occluders()) < len(state.Obstacles)+3 {
-		t.Fatalf("occluders=%d, want ground/player/obstacle shadow casters", len(world.Occluders()))
+	if len(world.Occluders()) != 0 {
+		t.Fatalf("occluders=%d, want no runner shadow occluders", len(world.Occluders()))
 	}
 	counts := countRunnerLayers(world.Sprites())
 	if counts[13] < 1 {
@@ -167,6 +164,31 @@ func TestRunnerSceneUsesLightingShadowsAndReadableSpriteRoles(t *testing.T) {
 	}
 	if countRunnerSunMoonSprites(world.Sprites()) < 1 {
 		t.Fatalf("sun/moon sprite missing")
+	}
+}
+
+func TestRunnerRoadSpritesOverlap(t *testing.T) {
+	config := defaultRunnerConfig()
+	game := app.NewGame(app.Config{Width: config.Width, Height: config.Height})
+	state := newRunnerState()
+	state.Distance = 123
+	world := buildRunnerScene(game, state, config)
+
+	var roads []graphics.SpriteDrawCommand
+	for _, sprite := range world.Sprites() {
+		if sprite.Layer == 5 {
+			roads = append(roads, sprite)
+		}
+	}
+	if len(roads) < 3 {
+		t.Fatalf("road sprites=%d, want repeated road segments", len(roads))
+	}
+	for i := 1; i < len(roads); i++ {
+		prevRight := roads[i-1].Transform.Position.X + roads[i-1].Transform.Scale.X*0.5
+		nextLeft := roads[i].Transform.Position.X - roads[i].Transform.Scale.X*0.5
+		if overlap := prevRight - nextLeft; overlap < runnerRoadOverlap-0.001 {
+			t.Fatalf("road sprites %d/%d overlap=%.2f, want at least %.2f", i-1, i, overlap, float32(runnerRoadOverlap))
+		}
 	}
 }
 
@@ -331,16 +353,6 @@ func TestRunnerTimeOfDayMovesSunAndMoonRightToLeft(t *testing.T) {
 	if !(moonEvening.X > moonNight.X && moonNight.X > moonDawn.X) {
 		t.Fatalf("moon x positions evening/night/dawn = %.1f/%.1f/%.1f, want right-to-left", moonEvening.X, moonNight.X, moonDawn.X)
 	}
-}
-
-func countRunnerShadowLights(lights []graphics.Light2D) int {
-	count := 0
-	for _, light := range lights {
-		if light.CastShadows {
-			count++
-		}
-	}
-	return count
 }
 
 func countRunnerLayers(sprites []graphics.SpriteDrawCommand) map[int]int {

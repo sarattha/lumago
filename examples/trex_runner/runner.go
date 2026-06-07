@@ -26,9 +26,7 @@ const (
 	runnerMaxSpeed     = 930
 	runnerDayCycle     = 48
 	runnerRoadWidth    = 760
-
-	runnerLightCount       = 3
-	runnerShadowLightCount = 1
+	runnerRoadOverlap  = 12
 )
 
 type runnerInput struct {
@@ -223,19 +221,12 @@ type runnerMaterialSet struct {
 
 func buildRunnerScene(game *app.Game, state runnerState, config runnerConfig) *scene.Scene {
 	world := scene.New()
-	world.SetLightingConfig(graphics.LightingConfig2D{
-		Ambient:    runnerAmbient(state.Time),
-		DebugView:  config.DebugView,
-		ShadowMode: config.ShadowMode,
-	})
 	materials := runnerMaterials(game, config)
 	addRunnerSky(world, state, materials)
 	addRunnerTrack(world, state, materials)
 	addRunnerObstacles(world, state, materials)
 	addRunnerDino(world, state, materials)
 	addRunnerScore(world, state)
-	addRunnerLights(world, state)
-	addRunnerOccluders(world, state)
 	return world
 }
 
@@ -524,8 +515,9 @@ func addRunnerSunMoon(world *scene.Scene, state runnerState, materials runnerMat
 
 func addRunnerTrack(world *scene.Scene, state runnerState, materials runnerMaterialSet) {
 	addRunnerRect(world, 640, runnerGroundY-76, 1280, 118, lmath.Color{R: 0.14, G: 0.11, B: 0.09, A: 1}, 4, 0)
-	offset := float32(math.Mod(float64(state.Distance), runnerRoadWidth))
-	for x := -offset - runnerRoadWidth; x < runnerTargetWidth+runnerRoadWidth; x += runnerRoadWidth {
+	roadStep := runnerRoadWidth - runnerRoadOverlap
+	offset := float32(math.Mod(float64(state.Distance), float64(roadStep)))
+	for x := -offset - float32(roadStep); x < runnerTargetWidth+runnerRoadWidth; x += float32(roadStep) {
 		addRunnerSprite(world, materials.Road, lmath.Rect{W: 1, H: 1}, x+runnerRoadWidth/2, runnerGroundY-58, runnerRoadWidth, 164, lmath.White(), 5, 0.04)
 	}
 }
@@ -625,32 +617,6 @@ func addRunnerDigit(world *scene.Scene, x, y float32, digit int) {
 			addRunnerRect(world, x, y+2, 20, 5, c, 22, 1.8)
 		}
 	}
-}
-
-func addRunnerLights(world *scene.Scene, state runnerState) {
-	keyPosition := runnerSunPosition(state.Time)
-	keyColor := lmath.Color{R: 1.00, G: 0.82, B: 0.46, A: 1}
-	keyIntensity := float32(1.22)
-	if !runnerSunVisible(state.Time) {
-		keyPosition = runnerMoonPosition(state.Time)
-		keyColor = lmath.Color{R: 0.56, G: 0.68, B: 1.00, A: 1}
-		keyIntensity = 0.86
-	}
-	world.SetLights([]graphics.Light2D{
-		{Position: keyPosition, Radius: 760, Color: keyColor, Intensity: keyIntensity, Falloff: 1.55, CastShadows: true},
-		{Position: lmath.Vec2{X: 330, Y: runnerGroundY - 10}, Radius: 260, Color: lmath.Color{R: 1.00, G: 0.78, B: 0.38, A: 1}, Intensity: 0.48, Falloff: 1.7},
-		{Position: lmath.Vec2{X: 930, Y: runnerGroundY - 10}, Radius: 310, Color: lmath.Color{R: 0.42, G: 0.62, B: 1.00, A: 1}, Intensity: 0.46, Falloff: 1.7},
-	})
-}
-
-func addRunnerOccluders(world *scene.Scene, state runnerState) {
-	world.AddOccluder(graphics.RectOccluder2D(lmath.Rect{X: 0, Y: runnerGroundY - 92, W: runnerTargetWidth, H: 92}, 1))
-	player := state.playerRect()
-	world.AddOccluder(graphics.RectOccluder2D(player, 2))
-	for _, obstacle := range state.Obstacles {
-		world.AddOccluder(graphics.RectOccluder2D(obstacle.Rect(), 2))
-	}
-	world.AddOccluder(graphics.SegmentOccluder2D(lmath.Vec2{X: 150, Y: runnerGroundY - 10}, lmath.Vec2{X: 1130, Y: runnerGroundY - 10}, 1))
 }
 
 func addRunnerRect(world *scene.Scene, x, y, w, h float32, color lmath.Color, layer int, emissive float32) {

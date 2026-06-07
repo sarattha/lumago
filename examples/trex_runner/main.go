@@ -110,7 +110,7 @@ func main() {
 	if stats.CPUFrameTime > 0 {
 		observedFPS = float64(time.Second) / float64(stats.CPUFrameTime)
 	}
-	fmt.Printf("LumaGo T-Rex runner finished: target=%dx%d@%dfps observed_fps=%.1f score=%d started=%t game_over=%t sprites=%d lights=%d shadow_lights=%d occluders=%d cpu_ms=%.3f alloc_bytes=%d debug=%s\n",
+	fmt.Printf("LumaGo T-Rex runner finished: target=%dx%d@%dfps observed_fps=%.1f score=%d started=%t game_over=%t sprites=%d lights=%d occluders=%d cpu_ms=%.3f alloc_bytes=%d debug=%s\n",
 		runnerTargetWidth,
 		runnerTargetHeight,
 		runnerTargetFPS,
@@ -120,7 +120,6 @@ func main() {
 		state.GameOver,
 		stats.Sprites,
 		stats.Lights,
-		runnerShadowLightCount,
 		stats.Occluders,
 		float64(stats.CPUFrameTime.Microseconds())/1000,
 		stats.HotPathAllocBytes,
