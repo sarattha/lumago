@@ -508,7 +508,7 @@ func addRunnerSunMoon(world *scene.Scene, state runnerState, materials runnerMat
 }
 
 func addRunnerTrack(world *scene.Scene, state runnerState, materials runnerMaterialSet) {
-	roadCenterY := float32(runnerTargetHeight - runnerRoadHeight/2)
+	roadCenterY := float32(runnerRoadHeight / 2)
 	addRunnerRect(world, 640, roadCenterY, 1280, runnerRoadHeight, lmath.Color{R: 0.14, G: 0.11, B: 0.09, A: 1}, 4, 0)
 	roadStep := runnerRoadWidth - runnerRoadOverlap
 	offset := float32(math.Mod(float64(state.Distance), float64(roadStep)))

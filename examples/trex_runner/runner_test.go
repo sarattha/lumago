@@ -190,7 +190,7 @@ func TestRunnerRoadSpritesOverlap(t *testing.T) {
 		t.Fatalf("road sprites=%d, want repeated road segments", len(roads))
 	}
 	for i, road := range roads {
-		if bottom := road.Transform.Position.Y + road.Transform.Scale.Y*0.5; bottom != runnerTargetHeight {
+		if bottom := runnerVisualBottom(road); bottom != runnerTargetHeight {
 			t.Fatalf("road sprite %d bottom=%.2f, want %d", i, bottom, runnerTargetHeight)
 		}
 	}
@@ -210,7 +210,7 @@ func TestRunnerRoadBackgroundTouchesBottom(t *testing.T) {
 
 	for _, sprite := range world.Sprites() {
 		if sprite.Layer == 4 {
-			bottom := sprite.Transform.Position.Y + sprite.Transform.Scale.Y*0.5
+			bottom := runnerVisualBottom(sprite)
 			if bottom != runnerTargetHeight {
 				t.Fatalf("road background bottom=%.2f, want %d", bottom, runnerTargetHeight)
 			}
@@ -473,4 +473,8 @@ func opaqueRoadPixelsInColumn(data graphics.TextureData, x int) int {
 		}
 	}
 	return count
+}
+
+func runnerVisualBottom(sprite graphics.SpriteDrawCommand) float32 {
+	return runnerTargetHeight - (sprite.Transform.Position.Y - sprite.Transform.Scale.Y*0.5)
 }
