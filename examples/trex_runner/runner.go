@@ -228,6 +228,7 @@ type runnerMaterialSpec struct {
 	Roughness      float32
 	Emissive       float32
 	Alpha          runnerAlphaFunc
+	UseSource      bool
 }
 
 func runnerMaterials(game *app.Game, config runnerConfig) runnerMaterialSet {
@@ -239,16 +240,16 @@ func runnerMaterials(game *app.Game, config runnerConfig) runnerMaterialSet {
 	}
 	return runnerMaterialSet{
 		SkyDawn: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
-			Sprite: "sky_dawn_full", Variant: "sky", FallbackSource: "sky/dawn-sky.png", FallbackSrc: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36, Roughness: 0.92, Emissive: 0.10, Alpha: runnerKeepOpaque,
+			Sprite: "sky_dawn_full", Variant: "sky", FallbackSource: "sky/dawn-sky.png", FallbackSrc: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36, Roughness: 0.92, Emissive: 0.10, Alpha: runnerKeepOpaque, UseSource: true,
 		}),
 		SkyNoon: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
-			Sprite: "sky_noon_full", Variant: "sky", FallbackSource: "sky/noon-sky.png", FallbackSrc: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36, Roughness: 0.92, Emissive: 0.16, Alpha: runnerKeepOpaque,
+			Sprite: "sky_noon_full", Variant: "sky", FallbackSource: "sky/noon-sky.png", FallbackSrc: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36, Roughness: 0.92, Emissive: 0.16, Alpha: runnerKeepOpaque, UseSource: true,
 		}),
 		SkyEvening: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
-			Sprite: "sky_evening_full", Variant: "sky", FallbackSource: "sky/evening-sky.png", FallbackSrc: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36, Roughness: 0.92, Emissive: 0.12, Alpha: runnerKeepOpaque,
+			Sprite: "sky_evening_full", Variant: "sky", FallbackSource: "sky/evening-sky.png", FallbackSrc: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36, Roughness: 0.92, Emissive: 0.12, Alpha: runnerKeepOpaque, UseSource: true,
 		}),
 		SkyNight: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
-			Sprite: "sky_night_full", Variant: "sky", FallbackSource: "sky/night-sky.png", FallbackSrc: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36, Roughness: 0.92, Emissive: 0.04, Alpha: runnerKeepOpaque,
+			Sprite: "sky_night_full", Variant: "sky", FallbackSource: "sky/night-sky.png", FallbackSrc: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36, Roughness: 0.92, Emissive: 0.04, Alpha: runnerKeepOpaque, UseSource: true,
 		}),
 		Sun: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
 			Sprite: "sun_disc", Variant: "sun", FallbackSource: "sun.png", FallbackSrc: image.Rect(130, 70, 930, 960), Width: 56, Height: 64, Roughness: 0.25, Emissive: 2.8, Alpha: runnerBrightAlpha,
@@ -314,11 +315,18 @@ func runnerMaterialFromSpec(game *app.Game, catalog runnerAssetCatalog, spec run
 			if texture, ok := catalog.TexturesByID[sprite.TextureID]; ok {
 				path := runnerCatalogAssetPath(catalog, texture.Source)
 				src := image.Rect(sprite.Rect.X, sprite.Rect.Y, sprite.Rect.X+sprite.Rect.W, sprite.Rect.Y+sprite.Rect.H)
+				if spec.UseSource {
+					return runnerSourceMaterial(game, path, spec.Roughness, spec.Emissive)
+				}
 				return runnerMaterialRegion(game, texture.Source, path, spec.Variant, src, spec.Width, spec.Height, spec.Roughness, spec.Emissive, spec.Alpha)
 			}
 		}
 	}
-	return runnerMaterialRegion(game, spec.FallbackSource, runnerAssetPath(spec.FallbackSource), spec.Variant, spec.FallbackSrc, spec.Width, spec.Height, spec.Roughness, spec.Emissive, spec.Alpha)
+	path := runnerAssetPath(spec.FallbackSource)
+	if spec.UseSource {
+		return runnerSourceMaterial(game, path, spec.Roughness, spec.Emissive)
+	}
+	return runnerMaterialRegion(game, spec.FallbackSource, path, spec.Variant, spec.FallbackSrc, spec.Width, spec.Height, spec.Roughness, spec.Emissive, spec.Alpha)
 }
 
 func runnerCatalogAssetPath(catalog runnerAssetCatalog, source string) string {
@@ -339,6 +347,14 @@ func runnerMaterialRegion(game *app.Game, name, path, variant string, src image.
 	}
 	return graphics.Material2D{
 		Albedo:    game.Assets.RegisterGeneratedTexture(key, width, height, runnerProcessedPixels(path, src, width, height, alpha)),
+		Roughness: roughness,
+		Emissive:  emissive,
+	}
+}
+
+func runnerSourceMaterial(game *app.Game, path string, roughness, emissive float32) graphics.Material2D {
+	return graphics.Material2D{
+		Albedo:    game.Assets.LoadTexture(path),
 		Roughness: roughness,
 		Emissive:  emissive,
 	}

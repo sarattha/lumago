@@ -203,6 +203,22 @@ func TestRunnerLoadsVisualAssetTextures(t *testing.T) {
 	game := app.NewGame(app.Config{Width: config.Width, Height: config.Height})
 	buildRunnerScene(game, newRunnerState(), config)
 
+	for _, asset := range []string{
+		"sky/dawn-sky.png",
+		"sky/noon-sky.png",
+		"sky/evening-sky.png",
+		"sky/night-sky.png",
+	} {
+		path := runnerAssetPath(asset)
+		info, ok := game.Assets.TextureByPath(path)
+		if !ok {
+			t.Fatalf("%s was not loaded as a source texture", path)
+		}
+		if info.Width != 1672 || info.Height != 941 {
+			t.Fatalf("%s size=%dx%d, want original 1672x941", path, info.Width, info.Height)
+		}
+	}
+
 	for _, asset := range []struct {
 		Name   string
 		Kind   string
@@ -210,10 +226,6 @@ func TestRunnerLoadsVisualAssetTextures(t *testing.T) {
 		Width  int
 		Height int
 	}{
-		{Name: "sky/dawn-sky.png", Kind: "sky", Src: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36},
-		{Name: "sky/noon-sky.png", Kind: "sky", Src: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36},
-		{Name: "sky/evening-sky.png", Kind: "sky", Src: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36},
-		{Name: "sky/night-sky.png", Kind: "sky", Src: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36},
 		{Name: "sun.png", Kind: "sun", Src: image.Rect(130, 70, 930, 960), Width: 56, Height: 64},
 		{Name: "moon.png", Kind: "moon", Src: image.Rect(120, 80, 930, 940), Width: 56, Height: 64},
 		{Name: "road.png", Kind: "road", Src: image.Rect(96, 410, 1440, 600), Width: 64, Height: 14},
