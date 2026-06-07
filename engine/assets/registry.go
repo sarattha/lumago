@@ -49,6 +49,32 @@ func (r *Registry) LoadTexture(path string) graphics.TextureID {
 	return id
 }
 
+func (r *Registry) RegisterGeneratedTexture(path string, width, height int, pixels []lmath.Color) graphics.TextureID {
+	if id, ok := r.textures[path]; ok {
+		return id
+	}
+	if width <= 0 || height <= 0 || len(pixels) != width*height {
+		return graphics.InvalidTexture
+	}
+
+	id := r.nextTextureID
+	r.nextTextureID++
+	r.textures[path] = id
+	r.textureInfo[id] = graphics.TextureInfo{
+		ID:     id,
+		Path:   path,
+		Width:  width,
+		Height: height,
+	}
+	graphics.RegisterTextureData(graphics.TextureData{
+		ID:     id,
+		Width:  width,
+		Height: height,
+		Pixels: pixels,
+	})
+	return id
+}
+
 func (r *Registry) Texture(id graphics.TextureID) (graphics.TextureInfo, bool) {
 	info, ok := r.textureInfo[id]
 	return info, ok

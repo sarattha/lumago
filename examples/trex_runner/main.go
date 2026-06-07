@@ -39,7 +39,7 @@ func main() {
 	})
 
 	state := newRunnerState()
-	game.SetScene(buildRunnerScene(state, config))
+	game.SetScene(buildRunnerScene(game, state, config))
 
 	var reader keyReader
 	var selectedRenderer renderer.Renderer
@@ -76,7 +76,7 @@ func main() {
 			return errRunnerQuit
 		}
 		state.Step(float32(dt.Seconds()), controls.read(reader))
-		game.SetScene(buildRunnerScene(state, config))
+		game.SetScene(buildRunnerScene(game, state, config))
 		frame++
 		if config.FrameLimit > 0 && frame >= config.FrameLimit {
 			return errRunnerFrameLimit

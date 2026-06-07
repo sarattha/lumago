@@ -1,8 +1,13 @@
 package main
 
 import (
+	"fmt"
+	"image"
 	"math"
+	"os"
+	"path/filepath"
 
+	"github.com/sarattha/lumago/engine/app"
 	"github.com/sarattha/lumago/engine/graphics"
 	lmath "github.com/sarattha/lumago/engine/math"
 	"github.com/sarattha/lumago/engine/scene"
@@ -18,6 +23,8 @@ const (
 	runnerJumpVelocity = 1060
 	runnerStartSpeed   = 520
 	runnerMaxSpeed     = 930
+	runnerDayCycle     = 48
+	runnerRoadWidth    = 760
 
 	runnerLightCount       = 3
 	runnerShadowLightCount = 1
@@ -85,7 +92,7 @@ func (s *runnerState) Reset() {
 	s.spawnIndex = 0
 	s.Obstacles = []runnerObstacle{
 		{Kind: runnerObstacleCactus, X: 780},
-		{Kind: runnerObstacleBird, X: 1120},
+		{Kind: runnerObstacleCactusCluster, X: 1120},
 	}
 	s.Clouds = []runnerCloud{
 		{X: 170, Y: 575, Scale: 1.0},
@@ -182,7 +189,6 @@ func (s *runnerState) spawnObstacle() {
 	kinds := []runnerObstacleKind{
 		runnerObstacleCactus,
 		runnerObstacleCactusCluster,
-		runnerObstacleBird,
 		runnerObstacleCactus,
 		runnerObstacleCactusCluster,
 	}
@@ -190,157 +196,264 @@ func (s *runnerState) spawnObstacle() {
 	s.spawnIndex++
 	s.Obstacles = append(s.Obstacles, runnerObstacle{Kind: kind, X: runnerTargetWidth + 95})
 	gap := 0.95 + float32((s.spawnIndex%3))*0.18
-	if kind == runnerObstacleBird {
-		gap += 0.18
-	}
 	s.spawnTimer = gap
 }
 
 func (o runnerObstacle) Rect() lmath.Rect {
 	switch o.Kind {
-	case runnerObstacleBird:
-		return lmath.Rect{X: o.X - 42, Y: runnerGroundY + 86, W: 84, H: 42}
 	case runnerObstacleCactusCluster:
-		return lmath.Rect{X: o.X - 40, Y: runnerGroundY, W: 80, H: 88}
+		return lmath.Rect{X: o.X - 48, Y: runnerGroundY, W: 96, H: 78}
 	default:
-		return lmath.Rect{X: o.X - 24, Y: runnerGroundY, W: 48, H: 78}
+		return lmath.Rect{X: o.X - 32, Y: runnerGroundY, W: 64, H: 66}
 	}
 }
 
-func buildRunnerScene(state runnerState, config runnerConfig) *scene.Scene {
+type runnerMaterialSet struct {
+	SkyDawn    graphics.Material2D
+	SkyNoon    graphics.Material2D
+	SkyEvening graphics.Material2D
+	SkyNight   graphics.Material2D
+	Sun        graphics.Material2D
+	Moon       graphics.Material2D
+	Road       graphics.Material2D
+	Rock       graphics.Material2D
+	Dino       graphics.Material2D
+}
+
+func buildRunnerScene(game *app.Game, state runnerState, config runnerConfig) *scene.Scene {
 	world := scene.New()
 	world.SetLightingConfig(graphics.LightingConfig2D{
-		Ambient:    lmath.Color{R: 0.24, G: 0.25, B: 0.28, A: 1},
+		Ambient:    runnerAmbient(state.Time),
 		DebugView:  config.DebugView,
 		ShadowMode: config.ShadowMode,
 	})
-	addRunnerSky(world, state)
-	addRunnerTrack(world, state)
-	addRunnerObstacles(world, state)
-	addRunnerDino(world, state)
+	materials := runnerMaterials(game)
+	addRunnerSky(world, state, materials)
+	addRunnerTrack(world, state, materials)
+	addRunnerObstacles(world, state, materials)
+	addRunnerDino(world, state, materials)
 	addRunnerScore(world, state)
 	addRunnerLights(world, state)
 	addRunnerOccluders(world, state)
 	return world
 }
 
-func addRunnerSky(world *scene.Scene, state runnerState) {
-	addRunnerRect(world, 640, 360, 1280, 720, lmath.Color{R: 0.08, G: 0.10, B: 0.13, A: 1}, 0, 0)
-	addRunnerRect(world, 640, 565, 1280, 310, lmath.Color{R: 0.11, G: 0.12, B: 0.15, A: 1}, 1, 0)
-	for i := 0; i < 9; i++ {
-		x := float32(70 + i*150)
-		y := float32(600 - (i%3)*38)
-		addRunnerRect(world, x, y, 4, 4, lmath.Color{R: 0.74, G: 0.82, B: 0.96, A: 1}, 2, 2.2)
+func runnerMaterials(game *app.Game) runnerMaterialSet {
+	return runnerMaterialSet{
+		SkyDawn:    runnerMaterialRegion(game, "sky/dawn-sky.png", "sky", image.Rect(0, 0, 1672, 941), 64, 36, 0.92, 0.10, runnerKeepOpaque),
+		SkyNoon:    runnerMaterialRegion(game, "sky/noon-sky.png", "sky", image.Rect(0, 0, 1672, 941), 64, 36, 0.92, 0.16, runnerKeepOpaque),
+		SkyEvening: runnerMaterialRegion(game, "sky/evening-sky.png", "sky", image.Rect(0, 0, 1672, 941), 64, 36, 0.92, 0.12, runnerKeepOpaque),
+		SkyNight:   runnerMaterialRegion(game, "sky/night-sky.png", "sky", image.Rect(0, 0, 1672, 941), 64, 36, 0.92, 0.04, runnerKeepOpaque),
+		Sun:        runnerMaterialRegion(game, "sun.png", "sun", image.Rect(130, 70, 930, 960), 56, 64, 0.25, 2.8, runnerBrightAlpha),
+		Moon:       runnerMaterialRegion(game, "moon.png", "moon", image.Rect(120, 80, 930, 940), 56, 64, 0.30, 1.8, runnerBrightAlpha),
+		Road:       runnerMaterialRegion(game, "road.png", "road", image.Rect(0, 390, 1536, 650), 64, 14, 0.58, 0.03, runnerKeepOpaque),
+		Rock:       runnerMaterialRegion(game, "rock.png", "rock", image.Rect(300, 285, 1220, 820), 56, 40, 0.68, 0.04, runnerRockAlpha),
+		Dino:       runnerMaterialRegion(game, "dino.png", "dino", image.Rect(180, 170, 1260, 840), 64, 40, 0.42, 0.10, runnerDinoAlpha),
 	}
+}
+
+type runnerAlphaFunc func(x, y, width, height int, color lmath.Color) float32
+
+func runnerMaterialRegion(game *app.Game, name, variant string, src image.Rectangle, width, height int, roughness, emissive float32, alpha runnerAlphaFunc) graphics.Material2D {
+	path := runnerAssetPath(name)
+	key := runnerProcessedAssetPath(name, variant, src, width, height)
+	if info, ok := game.Assets.TextureByPath(key); ok {
+		return graphics.Material2D{
+			Albedo:    info.ID,
+			Roughness: roughness,
+			Emissive:  emissive,
+		}
+	}
+	return graphics.Material2D{
+		Albedo:    game.Assets.RegisterGeneratedTexture(key, width, height, runnerProcessedPixels(path, src, width, height, alpha)),
+		Roughness: roughness,
+		Emissive:  emissive,
+	}
+}
+
+func runnerProcessedAssetPath(name, variant string, src image.Rectangle, width, height int) string {
+	return filepath.Join("generated", "trex_runner", variant, name) + "#" + src.String() + "@" + runnerTextureSizeKey(width, height)
+}
+
+func runnerTextureSizeKey(width, height int) string {
+	return fmt.Sprintf("%dx%d", width, height)
+}
+
+func runnerProcessedPixels(path string, src image.Rectangle, width, height int, alpha runnerAlphaFunc) []lmath.Color {
+	file, err := os.Open(path)
+	if err != nil {
+		return runnerFallbackPixels(width, height)
+	}
+	defer file.Close()
+	img, _, err := image.Decode(file)
+	if err != nil {
+		return runnerFallbackPixels(width, height)
+	}
+	bounds := img.Bounds()
+	src = src.Intersect(bounds)
+	if src.Empty() {
+		src = bounds
+	}
+	pixels := make([]lmath.Color, 0, width*height)
+	for y := 0; y < height; y++ {
+		sy := src.Min.Y + int((float32(y)+0.5)*float32(src.Dy())/float32(height))
+		if sy >= src.Max.Y {
+			sy = src.Max.Y - 1
+		}
+		for x := 0; x < width; x++ {
+			sx := src.Min.X + int((float32(x)+0.5)*float32(src.Dx())/float32(width))
+			if sx >= src.Max.X {
+				sx = src.Max.X - 1
+			}
+			r, g, b, a := img.At(sx, sy).RGBA()
+			color := lmath.Color{
+				R: float32(r) / 65535,
+				G: float32(g) / 65535,
+				B: float32(b) / 65535,
+				A: float32(a) / 65535,
+			}
+			if alpha != nil {
+				color.A *= alpha(x, y, width, height, color)
+			}
+			pixels = append(pixels, color)
+		}
+	}
+	return pixels
+}
+
+func runnerFallbackPixels(width, height int) []lmath.Color {
+	pixels := make([]lmath.Color, width*height)
+	for i := range pixels {
+		pixels[i] = lmath.Color{R: 1, G: 0, B: 1, A: 1}
+	}
+	return pixels
+}
+
+func runnerKeepOpaque(x, y, width, height int, color lmath.Color) float32 {
+	return 1
+}
+
+func runnerBrightAlpha(x, y, width, height int, color lmath.Color) float32 {
+	if maxColor(color) < 0.10 {
+		return 0
+	}
+	return 1
+}
+
+func runnerDinoAlpha(x, y, width, height int, color lmath.Color) float32 {
+	nx := (float32(x) + 0.5) / float32(width)
+	ny := (float32(y) + 0.5) / float32(height)
+	if nx < 0.03 || nx > 0.98 || ny < 0.08 || ny > 0.96 {
+		return 0
+	}
+	if colorSaturation(color) > 0.18 || color.G > color.R*1.08 || color.R > 0.45 && color.G > 0.32 && color.B < 0.25 {
+		return 1
+	}
+	if ny > 0.78 && nx > 0.33 && nx < 0.83 && maxColor(color) > 0.18 {
+		return 1
+	}
+	return 0
+}
+
+func runnerRockAlpha(x, y, width, height int, color lmath.Color) float32 {
+	nx := (float32(x) + 0.5) / float32(width)
+	ny := (float32(y) + 0.5) / float32(height)
+	center := float32(math.Abs(float64(nx - 0.52)))
+	top := 0.13 + center*0.72
+	if nx < 0.06 || nx > 0.95 || ny < top || ny > 0.92 {
+		return 0
+	}
+	if maxColor(color) < 0.08 {
+		return 0
+	}
+	return 1
+}
+
+func maxColor(color lmath.Color) float32 {
+	return maxRunner(color.R, maxRunner(color.G, color.B))
+}
+
+func minColor(color lmath.Color) float32 {
+	return minRunner(color.R, minRunner(color.G, color.B))
+}
+
+func colorSaturation(color lmath.Color) float32 {
+	max := maxColor(color)
+	if max == 0 {
+		return 0
+	}
+	return (max - minColor(color)) / max
+}
+
+func runnerAssetPath(name string) string {
+	path := filepath.Join("examples", "trex_runner", "assets", name)
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	return filepath.Join("assets", name)
+}
+
+func addRunnerSky(world *scene.Scene, state runnerState, materials runnerMaterialSet) {
+	material, color := runnerSkyMaterialAndTint(materials, state.Time)
+	addRunnerSprite(world, material, lmath.Rect{W: 1, H: 1}, 640, 360, 1280, 720, color, 0, 0)
 	for _, cloud := range state.Clouds {
 		addRunnerCloud(world, cloud)
 	}
-	addRunnerSunMoon(world, 1070, 604)
+	addRunnerSunMoon(world, state, materials)
 }
 
 func addRunnerCloud(world *scene.Scene, cloud runnerCloud) {
-	c := lmath.Color{R: 0.39, G: 0.49, B: 0.62, A: 1}
-	addRunnerRect(world, cloud.X, cloud.Y, 92*cloud.Scale, 22*cloud.Scale, c, 2, 0.15)
-	addRunnerRect(world, cloud.X-28*cloud.Scale, cloud.Y-12*cloud.Scale, 34*cloud.Scale, 28*cloud.Scale, c, 2, 0.15)
-	addRunnerRect(world, cloud.X+16*cloud.Scale, cloud.Y-18*cloud.Scale, 44*cloud.Scale, 36*cloud.Scale, c, 2, 0.15)
+	c := lmath.Color{R: 0.78, G: 0.86, B: 0.96, A: 1}
+	addRunnerRect(world, cloud.X, cloud.Y, 92*cloud.Scale, 22*cloud.Scale, c, 2, 0.45)
+	addRunnerRect(world, cloud.X-28*cloud.Scale, cloud.Y-12*cloud.Scale, 34*cloud.Scale, 28*cloud.Scale, c, 2, 0.45)
+	addRunnerRect(world, cloud.X+16*cloud.Scale, cloud.Y-18*cloud.Scale, 44*cloud.Scale, 36*cloud.Scale, c, 2, 0.45)
 }
 
-func addRunnerSunMoon(world *scene.Scene, x, y float32) {
-	halo := lmath.Color{R: 1.00, G: 0.76, B: 0.30, A: 0.72}
-	core := lmath.Color{R: 1.00, G: 0.93, B: 0.58, A: 1}
-	ray := lmath.Color{R: 1.00, G: 0.86, B: 0.42, A: 1}
-
-	addRunnerRect(world, x, y, 76, 76, halo, 2, 1.8)
-	addRunnerRect(world, x, y, 48, 48, core, 3, 3.2)
-	addRunnerRect(world, x-44, y, 22, 8, ray, 3, 2.6)
-	addRunnerRect(world, x+44, y, 22, 8, ray, 3, 2.6)
-	addRunnerRect(world, x, y-44, 8, 22, ray, 3, 2.6)
-	addRunnerRect(world, x, y+44, 8, 22, ray, 3, 2.6)
-	addRunnerRect(world, x-32, y-32, 14, 14, ray, 3, 2.2)
-	addRunnerRect(world, x+32, y+32, 14, 14, ray, 3, 2.2)
-	addRunnerRect(world, x+32, y-32, 14, 14, ray, 3, 2.2)
-	addRunnerRect(world, x-32, y+32, 14, 14, ray, 3, 2.2)
-}
-
-func addRunnerTrack(world *scene.Scene, state runnerState) {
-	addRunnerRect(world, 640, runnerGroundY-34, 1280, 68, lmath.Color{R: 0.30, G: 0.27, B: 0.24, A: 1}, 4, 0)
-	addRunnerRect(world, 640, runnerGroundY+2, 1280, 8, lmath.Color{R: 0.78, G: 0.66, B: 0.47, A: 1}, 5, 0.3)
-	offset := int(state.Distance) % 90
-	for x := -offset; x < runnerTargetWidth+120; x += 90 {
-		addRunnerRect(world, float32(x+24), runnerGroundY+19, 42, 5, lmath.Color{R: 0.92, G: 0.78, B: 0.52, A: 1}, 6, 0.4)
-		addRunnerRect(world, float32(x+70), runnerGroundY-7, 22, 4, lmath.Color{R: 0.55, G: 0.47, B: 0.38, A: 1}, 6, 0.2)
+func addRunnerSunMoon(world *scene.Scene, state runnerState, materials runnerMaterialSet) {
+	if runnerSunVisible(state.Time) {
+		pos := runnerSunPosition(state.Time)
+		addRunnerSprite(world, materials.Sun, lmath.Rect{W: 1, H: 1}, pos.X, pos.Y, 118, 118, lmath.White(), 3, 2.8)
+	}
+	if runnerMoonVisible(state.Time) {
+		pos := runnerMoonPosition(state.Time)
+		addRunnerSprite(world, materials.Moon, lmath.Rect{W: 1, H: 1}, pos.X, pos.Y, 108, 108, lmath.Color{R: 0.86, G: 0.92, B: 1.00, A: 1}, 3, 1.8)
 	}
 }
 
-func addRunnerObstacles(world *scene.Scene, state runnerState) {
+func addRunnerTrack(world *scene.Scene, state runnerState, materials runnerMaterialSet) {
+	addRunnerRect(world, 640, runnerGroundY-76, 1280, 118, lmath.Color{R: 0.14, G: 0.11, B: 0.09, A: 1}, 4, 0)
+	offset := float32(math.Mod(float64(state.Distance), runnerRoadWidth))
+	for x := -offset - runnerRoadWidth; x < runnerTargetWidth+runnerRoadWidth; x += runnerRoadWidth {
+		addRunnerSprite(world, materials.Road, lmath.Rect{W: 1, H: 1}, x+runnerRoadWidth/2, runnerGroundY-58, runnerRoadWidth, 164, lmath.White(), 5, 0.04)
+	}
+}
+
+func addRunnerObstacles(world *scene.Scene, state runnerState, materials runnerMaterialSet) {
 	for _, obstacle := range state.Obstacles {
 		switch obstacle.Kind {
-		case runnerObstacleBird:
-			addRunnerBird(world, obstacle.X, state.Time)
 		case runnerObstacleCactusCluster:
-			addRunnerCactus(world, obstacle.X-24, 88, 1.0)
-			addRunnerCactus(world, obstacle.X+18, 68, 0.82)
-			addRunnerCactus(world, obstacle.X+42, 76, 0.92)
+			addRunnerRock(world, materials, obstacle.X-24, 82, 0.96, -0.04)
+			addRunnerRock(world, materials, obstacle.X+26, 66, 0.78, 0.06)
 		default:
-			addRunnerCactus(world, obstacle.X, 78, 1.0)
+			addRunnerRock(world, materials, obstacle.X, 72, 0.82, 0)
 		}
 	}
 }
 
-func addRunnerCactus(world *scene.Scene, x, height, scale float32) {
-	green := lmath.Color{R: 0.19, G: 0.73, B: 0.38, A: 1}
-	dark := lmath.Color{R: 0.08, G: 0.36, B: 0.20, A: 1}
-	addRunnerRect(world, x, runnerGroundY+height/2, 24*scale, height, green, 8, 0.2)
-	addRunnerRect(world, x-20*scale, runnerGroundY+height-30*scale, 14*scale, 38*scale, green, 8, 0.2)
-	addRunnerRect(world, x+20*scale, runnerGroundY+height-44*scale, 14*scale, 32*scale, green, 8, 0.2)
-	addRunnerRect(world, x, runnerGroundY+height/2, 5*scale, height-12*scale, dark, 9, 0.05)
+func addRunnerRock(world *scene.Scene, materials runnerMaterialSet, x, height, scale, rotation float32) {
+	addRunnerRect(world, x, runnerGroundY-5, 78*scale, 18*scale, lmath.Color{R: 0.03, G: 0.03, B: 0.03, A: 0.45}, 7, 0)
+	addRunnerSpriteRotated(world, materials.Rock, lmath.Rect{W: 1, H: 1}, x, runnerGroundY+height/2-3, height*1.28*scale, height*scale, rotation, lmath.White(), 9, 0.02)
 }
 
-func addRunnerBird(world *scene.Scene, x, t float32) {
-	y := float32(runnerGroundY + 112)
-	flap := float32(math.Sin(float64(t*13))) * 10
-	body := lmath.Color{R: 0.55, G: 0.50, B: 0.90, A: 1}
-	wing := lmath.Color{R: 0.78, G: 0.70, B: 1.00, A: 1}
-	addRunnerRect(world, x, y, 58, 24, body, 9, 0.35)
-	addRunnerRect(world, x+34, y-3, 26, 16, body, 9, 0.35)
-	addRunnerRect(world, x-12, y-22+flap, 52, 12, wing, 10, 0.6)
-	addRunnerRect(world, x-10, y+22-flap, 46, 10, wing, 10, 0.6)
-	addRunnerRect(world, x+43, y-8, 4, 4, lmath.Black(), 11, 0)
-}
-
-func addRunnerDino(world *scene.Scene, state runnerState) {
+func addRunnerDino(world *scene.Scene, state runnerState, materials runnerMaterialSet) {
 	rect := state.playerRect()
 	x := rect.X + rect.W/2
-	body := lmath.Color{R: 0.30, G: 0.86, B: 0.70, A: 1}
-	belly := lmath.Color{R: 0.72, G: 1.00, B: 0.88, A: 1}
-	dark := lmath.Color{R: 0.06, G: 0.22, B: 0.20, A: 1}
-	addRunnerRect(world, x, state.PlayerBottom-10, rect.W*1.15, 16, lmath.Color{R: 0.00, G: 0.00, B: 0.00, A: 0.45}, 7, 0)
+	addRunnerRect(world, x, state.PlayerBottom-10, 126, 18, lmath.Color{R: 0.00, G: 0.00, B: 0.00, A: 0.45}, 7, 0)
 	if state.Ducking {
-		addRunnerRect(world, x-10, state.PlayerBottom+30, 92, 36, body, 12, 0.45)
-		addRunnerRect(world, x+42, state.PlayerBottom+42, 36, 28, body, 13, 0.45)
-		addRunnerRect(world, x-28, state.PlayerBottom+22, 38, 18, belly, 14, 0.8)
-		addRunnerRect(world, x+53, state.PlayerBottom+48, 5, 5, dark, 15, 0)
-		addRunnerRect(world, x-65, state.PlayerBottom+34, 34, 14, body, 12, 0.35)
-		addRunnerLegs(world, x-14, state.PlayerBottom, state.Time)
+		addRunnerSprite(world, materials.Dino, lmath.Rect{W: 1, H: 1}, x+6, state.PlayerBottom+48, 168, 118, lmath.White(), 13, 0.12)
 		return
 	}
-	addRunnerRect(world, x-4, state.PlayerBottom+47, 54, 62, body, 12, 0.45)
-	addRunnerRect(world, x+27, state.PlayerBottom+88, 46, 36, body, 13, 0.45)
-	addRunnerRect(world, x+53, state.PlayerBottom+76, 26, 16, body, 13, 0.45)
-	addRunnerRect(world, x-12, state.PlayerBottom+43, 26, 38, belly, 14, 0.8)
-	addRunnerRect(world, x+36, state.PlayerBottom+94, 5, 5, dark, 15, 0)
-	addRunnerRect(world, x-44, state.PlayerBottom+50, 36, 16, body, 12, 0.35)
-	addRunnerRect(world, x+3, state.PlayerBottom+24, 28, 9, dark, 15, 0)
-	addRunnerLegs(world, x, state.PlayerBottom, state.Time)
-}
-
-func addRunnerLegs(world *scene.Scene, x, bottom, t float32) {
-	leg := lmath.Color{R: 0.20, G: 0.64, B: 0.55, A: 1}
-	step := float32(math.Sin(float64(t * 18)))
-	addRunnerRect(world, x-16-step*7, bottom+10, 15, 28, leg, 13, 0.2)
-	addRunnerRect(world, x+16+step*7, bottom+10, 15, 28, leg, 13, 0.2)
-	addRunnerRect(world, x-20-step*7, bottom+1, 28, 9, leg, 13, 0.2)
-	addRunnerRect(world, x+19+step*7, bottom+1, 28, 9, leg, 13, 0.2)
+	addRunnerSprite(world, materials.Dino, lmath.Rect{W: 1, H: 1}, x+5, state.PlayerBottom+62, 178, 144, lmath.White(), 13, 0.12)
 }
 
 func addRunnerScore(world *scene.Scene, state runnerState) {
@@ -413,10 +526,18 @@ func addRunnerDigit(world *scene.Scene, x, y float32, digit int) {
 }
 
 func addRunnerLights(world *scene.Scene, state runnerState) {
+	keyPosition := runnerSunPosition(state.Time)
+	keyColor := lmath.Color{R: 1.00, G: 0.82, B: 0.46, A: 1}
+	keyIntensity := float32(1.22)
+	if !runnerSunVisible(state.Time) {
+		keyPosition = runnerMoonPosition(state.Time)
+		keyColor = lmath.Color{R: 0.56, G: 0.68, B: 1.00, A: 1}
+		keyIntensity = 0.86
+	}
 	world.SetLights([]graphics.Light2D{
-		{Position: lmath.Vec2{X: 1070, Y: 604}, Radius: 760, Color: lmath.Color{R: 1.00, G: 0.84, B: 0.50, A: 1}, Intensity: 1.25, Falloff: 1.55, CastShadows: true},
-		{Position: lmath.Vec2{X: 330, Y: runnerGroundY - 10}, Radius: 260, Color: lmath.Color{R: 1.00, G: 0.82, B: 0.42, A: 1}, Intensity: 0.65, Falloff: 1.7},
-		{Position: lmath.Vec2{X: 930, Y: runnerGroundY - 10}, Radius: 310, Color: lmath.Color{R: 0.48, G: 0.70, B: 1.00, A: 1}, Intensity: 0.60, Falloff: 1.7},
+		{Position: keyPosition, Radius: 760, Color: keyColor, Intensity: keyIntensity, Falloff: 1.55, CastShadows: true},
+		{Position: lmath.Vec2{X: 330, Y: runnerGroundY - 10}, Radius: 260, Color: lmath.Color{R: 1.00, G: 0.78, B: 0.38, A: 1}, Intensity: 0.48, Falloff: 1.7},
+		{Position: lmath.Vec2{X: 930, Y: runnerGroundY - 10}, Radius: 310, Color: lmath.Color{R: 0.42, G: 0.62, B: 1.00, A: 1}, Intensity: 0.46, Falloff: 1.7},
 	})
 }
 
@@ -431,19 +552,134 @@ func addRunnerOccluders(world *scene.Scene, state runnerState) {
 }
 
 func addRunnerRect(world *scene.Scene, x, y, w, h float32, color lmath.Color, layer int, emissive float32) {
+	addRunnerSprite(world, graphics.Material2D{Roughness: 0.55, Emissive: emissive}, lmath.Rect{W: 1, H: 1}, x, y, w, h, color, layer, emissive)
+}
+
+func addRunnerSprite(world *scene.Scene, material graphics.Material2D, src lmath.Rect, x, y, w, h float32, color lmath.Color, layer int, emissive float32) {
+	addRunnerSpriteRotated(world, material, src, x, y, w, h, 0, color, layer, emissive)
+}
+
+func addRunnerSpriteRotated(world *scene.Scene, material graphics.Material2D, src lmath.Rect, x, y, w, h, rotation float32, color lmath.Color, layer int, emissive float32) {
+	if src.W == 0 {
+		src.W = 1
+	}
+	if src.H == 0 {
+		src.H = 1
+	}
+	material.Emissive = emissive
 	world.AddSprite(graphics.SpriteDrawCommand{
 		Sprite: graphics.Sprite{
-			Material: graphics.Material2D{Roughness: 0.55, Emissive: emissive},
-			Src:      lmath.Rect{W: 1, H: 1},
+			Material: material,
+			Src:      src,
 			Color:    color,
 		},
 		Transform: graphics.Transform2D{
 			Position: lmath.Vec2{X: x, Y: y},
-			Scale:    lmath.Vec2{X: w, Y: h},
+			Scale:    lmath.Vec2{X: w / src.W, Y: h / src.H},
+			Rotation: rotation,
 			Z:        float32(layer),
 		},
 		Layer: layer,
 	})
+}
+
+func runnerSkyMaterialAndTint(materials runnerMaterialSet, t float32) (graphics.Material2D, lmath.Color) {
+	phase := runnerDayPhase(t)
+	switch {
+	case phase < 0.25:
+		return materials.SkyDawn, lerpColor(runnerDawnTint(), runnerNoonTint(), phase/0.25)
+	case phase < 0.50:
+		return materials.SkyNoon, lerpColor(runnerNoonTint(), runnerEveningTint(), (phase-0.25)/0.25)
+	case phase < 0.75:
+		return materials.SkyEvening, lerpColor(runnerEveningTint(), runnerNightTint(), (phase-0.50)/0.25)
+	default:
+		return materials.SkyNight, lerpColor(runnerNightTint(), runnerDawnTint(), (phase-0.75)/0.25)
+	}
+}
+
+func runnerAmbient(t float32) lmath.Color {
+	phase := runnerDayPhase(t)
+	switch {
+	case phase < 0.25:
+		return lerpColor(lmath.Color{R: 0.30, G: 0.25, B: 0.23, A: 1}, lmath.Color{R: 0.52, G: 0.50, B: 0.45, A: 1}, phase/0.25)
+	case phase < 0.50:
+		return lerpColor(lmath.Color{R: 0.52, G: 0.50, B: 0.45, A: 1}, lmath.Color{R: 0.36, G: 0.29, B: 0.25, A: 1}, (phase-0.25)/0.25)
+	case phase < 0.75:
+		return lerpColor(lmath.Color{R: 0.36, G: 0.29, B: 0.25, A: 1}, lmath.Color{R: 0.13, G: 0.15, B: 0.24, A: 1}, (phase-0.50)/0.25)
+	default:
+		return lerpColor(lmath.Color{R: 0.13, G: 0.15, B: 0.24, A: 1}, lmath.Color{R: 0.30, G: 0.25, B: 0.23, A: 1}, (phase-0.75)/0.25)
+	}
+}
+
+func runnerDawnTint() lmath.Color {
+	return lmath.Color{R: 1.00, G: 0.92, B: 0.84, A: 1}
+}
+
+func runnerNoonTint() lmath.Color {
+	return lmath.Color{R: 1.00, G: 1.00, B: 0.96, A: 1}
+}
+
+func runnerEveningTint() lmath.Color {
+	return lmath.Color{R: 1.00, G: 0.78, B: 0.62, A: 1}
+}
+
+func runnerNightTint() lmath.Color {
+	return lmath.Color{R: 0.48, G: 0.56, B: 0.84, A: 1}
+}
+
+func runnerSunVisible(t float32) bool {
+	return runnerDayPhase(t) < 0.58
+}
+
+func runnerMoonVisible(t float32) bool {
+	return runnerDayPhase(t) >= 0.42
+}
+
+func runnerSunPosition(t float32) lmath.Vec2 {
+	progress := clampRunner(runnerDayPhase(t)/0.58, 0, 1)
+	return runnerArcPosition(progress)
+}
+
+func runnerMoonPosition(t float32) lmath.Vec2 {
+	phase := runnerDayPhase(t)
+	progress := (phase - 0.42) / 0.58
+	if progress < 0 {
+		progress += 1
+	}
+	return runnerArcPosition(clampRunner(progress, 0, 1))
+}
+
+func runnerArcPosition(progress float32) lmath.Vec2 {
+	x := 1220 - progress*1540
+	y := 438 + 178*float32(math.Sin(float64(progress*math.Pi)))
+	return lmath.Vec2{X: x, Y: y}
+}
+
+func runnerDayPhase(t float32) float32 {
+	if t <= 0 {
+		return 0
+	}
+	return float32(math.Mod(float64(t), runnerDayCycle)) / runnerDayCycle
+}
+
+func lerpColor(a, b lmath.Color, t float32) lmath.Color {
+	t = clampRunner(t, 0, 1)
+	return lmath.Color{
+		R: a.R + (b.R-a.R)*t,
+		G: a.G + (b.G-a.G)*t,
+		B: a.B + (b.B-a.B)*t,
+		A: a.A + (b.A-a.A)*t,
+	}
+}
+
+func clampRunner(value, min, max float32) float32 {
+	if value < min {
+		return min
+	}
+	if value > max {
+		return max
+	}
+	return value
 }
 
 func rectsOverlap(a, b lmath.Rect) bool {
@@ -452,6 +688,13 @@ func rectsOverlap(a, b lmath.Rect) bool {
 
 func minRunner(a, b float32) float32 {
 	if a < b {
+		return a
+	}
+	return b
+}
+
+func maxRunner(a, b float32) float32 {
+	if a > b {
 		return a
 	}
 	return b
