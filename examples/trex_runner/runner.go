@@ -26,6 +26,7 @@ const (
 	runnerMaxSpeed     = 930
 	runnerDayCycle     = 48
 	runnerRoadWidth    = 760
+	runnerRoadHeight   = 220
 	runnerRoadOverlap  = 12
 )
 
@@ -507,11 +508,12 @@ func addRunnerSunMoon(world *scene.Scene, state runnerState, materials runnerMat
 }
 
 func addRunnerTrack(world *scene.Scene, state runnerState, materials runnerMaterialSet) {
-	addRunnerRect(world, 640, runnerGroundY-76, 1280, 118, lmath.Color{R: 0.14, G: 0.11, B: 0.09, A: 1}, 4, 0)
+	roadCenterY := float32(runnerTargetHeight - runnerRoadHeight/2)
+	addRunnerRect(world, 640, roadCenterY, 1280, runnerRoadHeight, lmath.Color{R: 0.14, G: 0.11, B: 0.09, A: 1}, 4, 0)
 	roadStep := runnerRoadWidth - runnerRoadOverlap
 	offset := float32(math.Mod(float64(state.Distance), float64(roadStep)))
 	for x := -offset - float32(roadStep); x < runnerTargetWidth+runnerRoadWidth; x += float32(roadStep) {
-		addRunnerSprite(world, materials.Road, lmath.Rect{W: 1, H: 1}, x+runnerRoadWidth/2, runnerGroundY-58, runnerRoadWidth, 164, lmath.White(), 5, 0.04)
+		addRunnerSprite(world, materials.Road, lmath.Rect{W: 1, H: 1}, x+runnerRoadWidth/2, roadCenterY, runnerRoadWidth, runnerRoadHeight, lmath.White(), 5, 0.04)
 	}
 }
 

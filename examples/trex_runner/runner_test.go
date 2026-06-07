@@ -189,6 +189,11 @@ func TestRunnerRoadSpritesOverlap(t *testing.T) {
 	if len(roads) < 3 {
 		t.Fatalf("road sprites=%d, want repeated road segments", len(roads))
 	}
+	for i, road := range roads {
+		if bottom := road.Transform.Position.Y + road.Transform.Scale.Y*0.5; bottom != runnerTargetHeight {
+			t.Fatalf("road sprite %d bottom=%.2f, want %d", i, bottom, runnerTargetHeight)
+		}
+	}
 	for i := 1; i < len(roads); i++ {
 		prevRight := roads[i-1].Transform.Position.X + roads[i-1].Transform.Scale.X*0.5
 		nextLeft := roads[i].Transform.Position.X - roads[i].Transform.Scale.X*0.5
@@ -196,6 +201,23 @@ func TestRunnerRoadSpritesOverlap(t *testing.T) {
 			t.Fatalf("road sprites %d/%d overlap=%.2f, want at least %.2f", i-1, i, overlap, float32(runnerRoadOverlap))
 		}
 	}
+}
+
+func TestRunnerRoadBackgroundTouchesBottom(t *testing.T) {
+	config := defaultRunnerConfig()
+	game := app.NewGame(app.Config{Width: config.Width, Height: config.Height})
+	world := buildRunnerScene(game, newRunnerState(), config)
+
+	for _, sprite := range world.Sprites() {
+		if sprite.Layer == 4 {
+			bottom := sprite.Transform.Position.Y + sprite.Transform.Scale.Y*0.5
+			if bottom != runnerTargetHeight {
+				t.Fatalf("road background bottom=%.2f, want %d", bottom, runnerTargetHeight)
+			}
+			return
+		}
+	}
+	t.Fatal("road background sprite missing")
 }
 
 func TestRunnerLoadsVisualAssetTextures(t *testing.T) {
