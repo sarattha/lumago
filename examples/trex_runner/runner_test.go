@@ -220,26 +220,26 @@ func TestRunnerRoadBackgroundTouchesBottom(t *testing.T) {
 	t.Fatal("road background sprite missing")
 }
 
+func TestRunnerActorsStandOnRoad(t *testing.T) {
+	config := defaultRunnerConfig()
+	game := app.NewGame(app.Config{Width: config.Width, Height: config.Height})
+	world := buildRunnerScene(game, newRunnerState(), config)
+	roadTop := runnerVisualTop(findFirstLayerSprite(t, world.Sprites(), 5))
+
+	dino := findFirstLayerSprite(t, world.Sprites(), 13)
+	if bottom := runnerVisualBottom(dino); bottom <= roadTop {
+		t.Fatalf("dino bottom=%.2f, want below road top %.2f", bottom, roadTop)
+	}
+	rock := findFirstLayerSprite(t, world.Sprites(), 9)
+	if bottom := runnerVisualBottom(rock); bottom <= roadTop {
+		t.Fatalf("rock bottom=%.2f, want below road top %.2f", bottom, roadTop)
+	}
+}
+
 func TestRunnerLoadsVisualAssetTextures(t *testing.T) {
 	config := defaultRunnerConfig()
 	game := app.NewGame(app.Config{Width: config.Width, Height: config.Height})
 	buildRunnerScene(game, newRunnerState(), config)
-
-	for _, asset := range []string{
-		"sky/dawn-sky.png",
-		"sky/noon-sky.png",
-		"sky/evening-sky.png",
-		"sky/night-sky.png",
-	} {
-		path := runnerAssetPath(asset)
-		info, ok := game.Assets.TextureByPath(path)
-		if !ok {
-			t.Fatalf("%s was not loaded as a source texture", path)
-		}
-		if info.Width != 1672 || info.Height != 941 {
-			t.Fatalf("%s size=%dx%d, want original 1672x941", path, info.Width, info.Height)
-		}
-	}
 
 	for _, asset := range []struct {
 		Name   string
@@ -248,6 +248,10 @@ func TestRunnerLoadsVisualAssetTextures(t *testing.T) {
 		Width  int
 		Height int
 	}{
+		{Name: "sky/dawn-sky.png", Kind: "sky", Src: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36},
+		{Name: "sky/noon-sky.png", Kind: "sky", Src: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36},
+		{Name: "sky/evening-sky.png", Kind: "sky", Src: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36},
+		{Name: "sky/night-sky.png", Kind: "sky", Src: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36},
 		{Name: "sun.png", Kind: "sun", Src: image.Rect(130, 70, 930, 960), Width: 56, Height: 64},
 		{Name: "moon.png", Kind: "moon", Src: image.Rect(120, 80, 930, 940), Width: 56, Height: 64},
 		{Name: "road.png", Kind: "road", Src: image.Rect(96, 410, 1440, 600), Width: 64, Height: 14},
@@ -265,6 +269,28 @@ func TestRunnerLoadsVisualAssetTextures(t *testing.T) {
 		if info.Width*info.Height > 64*64 {
 			t.Fatalf("%s has %d texels, want Vulkan texel lighting path limit <=4096", path, info.Width*info.Height)
 		}
+	}
+}
+
+func TestRunnerSkyUsesGeneratedDetailedTexture(t *testing.T) {
+	config := defaultRunnerConfig()
+	game := app.NewGame(app.Config{Width: config.Width, Height: config.Height})
+	buildRunnerScene(game, newRunnerState(), config)
+
+	path := runnerProcessedAssetPath("sky/dawn-sky.png", "sky", image.Rect(0, 0, 1672, 941), 64, 36)
+	info, ok := game.Assets.TextureByPath(path)
+	if !ok {
+		t.Fatalf("%s was not loaded", path)
+	}
+	data, ok := graphics.RegisteredTextureData(info.ID)
+	if !ok {
+		t.Fatalf("%s texture data was not registered", path)
+	}
+	if data.Width*data.Height > 4096 {
+		t.Fatalf("sky texels=%d, want CPU texel path size <=4096", data.Width*data.Height)
+	}
+	if distinctTextureColors(data) < 64 {
+		t.Fatalf("sky texture has too few distinct colors; likely lost detail")
 	}
 }
 
@@ -477,4 +503,33 @@ func opaqueRoadPixelsInColumn(data graphics.TextureData, x int) int {
 
 func runnerVisualBottom(sprite graphics.SpriteDrawCommand) float32 {
 	return runnerTargetHeight - (sprite.Transform.Position.Y - sprite.Transform.Scale.Y*0.5)
+}
+
+func runnerVisualTop(sprite graphics.SpriteDrawCommand) float32 {
+	return runnerTargetHeight - (sprite.Transform.Position.Y + sprite.Transform.Scale.Y*0.5)
+}
+
+func findFirstLayerSprite(t *testing.T, sprites []graphics.SpriteDrawCommand, layer int) graphics.SpriteDrawCommand {
+	t.Helper()
+	for _, sprite := range sprites {
+		if sprite.Layer == layer {
+			return sprite
+		}
+	}
+	t.Fatalf("sprite layer %d missing", layer)
+	return graphics.SpriteDrawCommand{}
+}
+
+func distinctTextureColors(data graphics.TextureData) int {
+	seen := map[[4]int]bool{}
+	for _, pixel := range data.Pixels {
+		key := [4]int{
+			int(pixel.R * 255),
+			int(pixel.G * 255),
+			int(pixel.B * 255),
+			int(pixel.A * 255),
+		}
+		seen[key] = true
+	}
+	return len(seen)
 }
