@@ -210,7 +210,7 @@ func TestRunnerLoadsVisualAssetTextures(t *testing.T) {
 		{Name: "sky/night-sky.png", Kind: "sky", Src: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36},
 		{Name: "sun.png", Kind: "sun", Src: image.Rect(130, 70, 930, 960), Width: 56, Height: 64},
 		{Name: "moon.png", Kind: "moon", Src: image.Rect(120, 80, 930, 940), Width: 56, Height: 64},
-		{Name: "road.png", Kind: "road", Src: image.Rect(0, 390, 1536, 650), Width: 64, Height: 14},
+		{Name: "road.png", Kind: "road", Src: image.Rect(96, 410, 1440, 600), Width: 64, Height: 14},
 		{Name: "rock.png", Kind: "rock", Src: image.Rect(300, 285, 1220, 820), Width: 56, Height: 40},
 		{Name: "dino.png", Kind: "dino", Src: image.Rect(180, 170, 1260, 840), Width: 64, Height: 40},
 	} {
@@ -261,6 +261,36 @@ func TestRunnerLoadsAssetManifest(t *testing.T) {
 	}
 	if len(catalog.Manifest.NormalMaps) != 9 {
 		t.Fatalf("neutral fallback normals=%d, want 9", len(catalog.Manifest.NormalMaps))
+	}
+}
+
+func TestRunnerRoadTextureDoesNotIncludeCheckerMargins(t *testing.T) {
+	config := defaultRunnerConfig()
+	game := app.NewGame(app.Config{Width: config.Width, Height: config.Height})
+	buildRunnerScene(game, newRunnerState(), config)
+
+	path := runnerProcessedAssetPath("road.png", "road", image.Rect(96, 410, 1440, 600), 64, 14)
+	info, ok := game.Assets.TextureByPath(path)
+	if !ok {
+		t.Fatalf("%s was not loaded", path)
+	}
+	data, ok := graphics.RegisteredTextureData(info.ID)
+	if !ok {
+		t.Fatalf("%s texture data was not registered", path)
+	}
+	for y := 0; y < data.Height; y++ {
+		for _, x := range []int{0, data.Width - 1} {
+			pixel := data.Pixels[y*data.Width+x]
+			if pixel.A > 0.01 && maxColor(pixel) > 0.86 && colorSaturation(pixel) < 0.08 {
+				t.Fatalf("road edge pixel x=%d y=%d still looks like checker background: %+v", x, y, pixel)
+			}
+		}
+	}
+	if opaqueRoadPixelsInColumn(data, 0) < data.Height/2 {
+		t.Fatalf("road left edge has too few opaque road pixels")
+	}
+	if opaqueRoadPixelsInColumn(data, data.Width-1) < data.Height/2 {
+		t.Fatalf("road right edge has too few opaque road pixels")
 	}
 }
 
@@ -393,4 +423,14 @@ func equalBoolSlices(a, b []bool) bool {
 		}
 	}
 	return true
+}
+
+func opaqueRoadPixelsInColumn(data graphics.TextureData, x int) int {
+	count := 0
+	for y := 0; y < data.Height; y++ {
+		if data.Pixels[y*data.Width+x].A > 0.99 {
+			count++
+		}
+	}
+	return count
 }

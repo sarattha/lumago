@@ -277,7 +277,7 @@ func runnerMaterials(game *app.Game, config runnerConfig) runnerMaterialSet {
 			Sprite: "moon_disc", Variant: "moon", FallbackSource: "moon.png", FallbackSrc: image.Rect(120, 80, 930, 940), Width: 56, Height: 64, Roughness: 0.30, Emissive: 1.8, Alpha: runnerBrightAlpha,
 		}),
 		Road: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
-			Sprite: "road_strip", Variant: "road", FallbackSource: "road.png", FallbackSrc: image.Rect(0, 390, 1536, 650), Width: 64, Height: 14, Roughness: 0.58, Emissive: 0.03, Alpha: runnerKeepOpaque,
+			Sprite: "road_strip", Variant: "road", FallbackSource: "road.png", FallbackSrc: image.Rect(96, 410, 1440, 600), Width: 64, Height: 14, Roughness: 0.58, Emissive: 0.03, Alpha: runnerRoadAlpha,
 		}),
 		Rock: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
 			Sprite: "rock_obstacle", Variant: "rock", FallbackSource: "rock.png", FallbackSrc: image.Rect(300, 285, 1220, 820), Width: 56, Height: 40, Roughness: 0.68, Emissive: 0.04, Alpha: runnerRockAlpha,
@@ -423,6 +423,13 @@ func runnerFallbackPixels(width, height int) []lmath.Color {
 }
 
 func runnerKeepOpaque(x, y, width, height int, color lmath.Color) float32 {
+	return 1
+}
+
+func runnerRoadAlpha(x, y, width, height int, color lmath.Color) float32 {
+	if maxColor(color) > 0.86 && colorSaturation(color) < 0.08 {
+		return 0
+	}
 	return 1
 }
 
