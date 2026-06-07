@@ -29,7 +29,7 @@ func TestImportAssetMetadataBuildsDeterministicManifest(t *testing.T) {
 		}},
 		Sprites: []SpriteMetadata{
 			{Name: "grass", Texture: "tiles", Rect: AssetRect{X: 0, Y: 0, W: 16, H: 16}},
-			{Name: "stone", Texture: "tiles", Rect: AssetRect{X: 16, Y: 0, W: 16, H: 16}, Pivot: AssetVec2{X: 0.5, Y: 1}},
+			{Name: "stone", Texture: "tiles", Rect: AssetRect{X: 16, Y: 0, W: 16, H: 16}, Pivot: &AssetVec2{X: 0.5, Y: 1}},
 		},
 		Atlases: []AtlasMetadata{{
 			Name:      "world",
@@ -92,6 +92,33 @@ func TestImportAssetMetadataBuildsDeterministicManifest(t *testing.T) {
 	}
 	if first.Tilemaps[0].TileSize != (AssetSize{W: 16, H: 16}) {
 		t.Fatalf("tilemap default tile size=%+v, want 16x16", first.Tilemaps[0].TileSize)
+	}
+}
+
+func TestImportAssetMetadataPreservesExplicitZeroPivot(t *testing.T) {
+	dir := t.TempDir()
+	writePNG(t, filepath.Join(dir, "tiles.png"), 16, 16)
+
+	manifest, err := ImportAssetMetadata(AssetMetadata{
+		Textures: []TextureMetadata{{Name: "tiles", Source: "tiles.png"}},
+		Sprites: []SpriteMetadata{
+			{Name: "corner", Texture: "tiles", Rect: AssetRect{X: 0, Y: 0, W: 16, H: 16}, Pivot: &AssetVec2{X: 0, Y: 0}},
+			{Name: "default", Texture: "tiles", Rect: AssetRect{X: 0, Y: 0, W: 16, H: 16}},
+		},
+	}, dir)
+	if err != nil {
+		t.Fatalf("ImportAssetMetadata returned error: %v", err)
+	}
+
+	sprites := map[string]ManifestSprite{}
+	for _, sprite := range manifest.Sprites {
+		sprites[sprite.Name] = sprite
+	}
+	if sprites["corner"].Pivot != (AssetVec2{X: 0, Y: 0}) {
+		t.Fatalf("explicit zero pivot=%+v, want origin", sprites["corner"].Pivot)
+	}
+	if sprites["default"].Pivot != (AssetVec2{X: 0.5, Y: 0.5}) {
+		t.Fatalf("default pivot=%+v, want center", sprites["default"].Pivot)
 	}
 }
 

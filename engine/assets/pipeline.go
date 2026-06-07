@@ -70,11 +70,11 @@ type TextureMetadata struct {
 }
 
 type SpriteMetadata struct {
-	Name          string    `json:"name"`
-	Texture       string    `json:"texture"`
-	Rect          AssetRect `json:"rect"`
-	Pivot         AssetVec2 `json:"pivot,omitempty"`
-	PixelsPerUnit int       `json:"pixelsPerUnit,omitempty"`
+	Name          string     `json:"name"`
+	Texture       string     `json:"texture"`
+	Rect          AssetRect  `json:"rect"`
+	Pivot         *AssetVec2 `json:"pivot,omitempty"`
+	PixelsPerUnit int        `json:"pixelsPerUnit,omitempty"`
 }
 
 type AtlasMetadata struct {
@@ -432,9 +432,9 @@ func (i *assetImporter) importSprites(manifest *AssetManifest) {
 		if ppu <= 0 {
 			i.addErr(field+".pixelsPerUnit", "must be positive")
 		}
-		pivot := sprite.Pivot
-		if pivot.X == 0 && pivot.Y == 0 {
-			pivot = AssetVec2{X: 0.5, Y: 0.5}
+		pivot := AssetVec2{X: 0.5, Y: 0.5}
+		if sprite.Pivot != nil {
+			pivot = *sprite.Pivot
 		}
 		if pivot.X < 0 || pivot.X > 1 || pivot.Y < 0 || pivot.Y > 1 {
 			i.addErr(field+".pivot", "must be normalized between 0 and 1")

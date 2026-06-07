@@ -2,7 +2,10 @@ package main
 
 import (
 	"image"
+	"image/color"
+	"image/png"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/sarattha/lumago/engine/app"
@@ -390,6 +393,41 @@ func TestPrepareRunnerAssetsEnablesDevelopmentHotReload(t *testing.T) {
 	}
 }
 
+func TestRunnerGeneratedTextureKeyIncludesReloadRevision(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hot.png")
+	writeRunnerPNG(t, path, color.RGBA{R: 255, A: 255})
+
+	game := app.NewGame(app.Config{Width: runnerTargetWidth, Height: runnerTargetHeight})
+	src := image.Rect(0, 0, 2, 2)
+	first := runnerMaterialRegion(game, "hot.png", path, "hot", src, 2, 2, 0.5, 0, nil, 0)
+	firstData, ok := graphics.RegisteredTextureData(first.Albedo)
+	if !ok {
+		t.Fatal("first generated texture data missing")
+	}
+	if firstData.Pixels[0].R <= 0.99 {
+		t.Fatalf("first pixel=%+v, want red", firstData.Pixels[0])
+	}
+
+	writeRunnerPNG(t, path, color.RGBA{B: 255, A: 255})
+	cached := runnerMaterialRegion(game, "hot.png", path, "hot", src, 2, 2, 0.5, 0, nil, 0)
+	if cached.Albedo != first.Albedo {
+		t.Fatalf("same revision texture id=%d, want cached id %d", cached.Albedo, first.Albedo)
+	}
+
+	reloaded := runnerMaterialRegion(game, "hot.png", path, "hot", src, 2, 2, 0.5, 0, nil, 1)
+	if reloaded.Albedo == first.Albedo {
+		t.Fatalf("reload revision reused stale texture id %d", reloaded.Albedo)
+	}
+	reloadedData, ok := graphics.RegisteredTextureData(reloaded.Albedo)
+	if !ok {
+		t.Fatal("reloaded generated texture data missing")
+	}
+	if reloadedData.Pixels[0].B <= 0.99 {
+		t.Fatalf("reloaded pixel=%+v, want blue", reloadedData.Pixels[0])
+	}
+}
+
 func TestRunnerGeneratedCutoutsHaveTransparentPixels(t *testing.T) {
 	config := defaultRunnerConfig()
 	game := app.NewGame(app.Config{Width: config.Width, Height: config.Height})
@@ -532,4 +570,24 @@ func distinctTextureColors(data graphics.TextureData) int {
 		seen[key] = true
 	}
 	return len(seen)
+}
+
+func writeRunnerPNG(t *testing.T, path string, pixel color.RGBA) {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, 2, 2))
+	for y := 0; y < 2; y++ {
+		for x := 0; x < 2; x++ {
+			img.Set(x, y, pixel)
+		}
+	}
+	file, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := png.Encode(file, img); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
 }

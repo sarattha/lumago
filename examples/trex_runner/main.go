@@ -85,7 +85,7 @@ func main() {
 				return err
 			}
 			if changed {
-				config.AssetCatalog = runnerAssetCatalogFromManifest(manifest, hotReloader.BaseDir())
+				config.AssetCatalog = runnerAssetCatalogFromManifestRevision(manifest, hotReloader.BaseDir(), config.AssetCatalog.Revision+1)
 			}
 		}
 		if reader != nil && reader.KeyDown(input.KeyEscape) {

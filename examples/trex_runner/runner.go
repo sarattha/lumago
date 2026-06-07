@@ -214,6 +214,7 @@ func buildRunnerScene(game *app.Game, state runnerState, config runnerConfig) *s
 type runnerAssetCatalog struct {
 	Ready         bool
 	BaseDir       string
+	Revision      int
 	Manifest      engineassets.AssetManifest
 	TexturesByID  map[string]engineassets.ManifestTexture
 	SpritesByName map[string]engineassets.ManifestSprite
@@ -281,9 +282,14 @@ func loadRunnerAssetCatalog(path string) (runnerAssetCatalog, error) {
 }
 
 func runnerAssetCatalogFromManifest(manifest engineassets.AssetManifest, baseDir string) runnerAssetCatalog {
+	return runnerAssetCatalogFromManifestRevision(manifest, baseDir, 0)
+}
+
+func runnerAssetCatalogFromManifestRevision(manifest engineassets.AssetManifest, baseDir string, revision int) runnerAssetCatalog {
 	catalog := runnerAssetCatalog{
 		Ready:         true,
 		BaseDir:       baseDir,
+		Revision:      revision,
 		Manifest:      manifest,
 		TexturesByID:  make(map[string]engineassets.ManifestTexture, len(manifest.Textures)),
 		SpritesByName: make(map[string]engineassets.ManifestSprite, len(manifest.Sprites)),
@@ -315,12 +321,12 @@ func runnerMaterialFromSpec(game *app.Game, catalog runnerAssetCatalog, spec run
 			if texture, ok := catalog.TexturesByID[sprite.TextureID]; ok {
 				path := runnerCatalogAssetPath(catalog, texture.Source)
 				src := image.Rect(sprite.Rect.X, sprite.Rect.Y, sprite.Rect.X+sprite.Rect.W, sprite.Rect.Y+sprite.Rect.H)
-				return runnerMaterialRegion(game, texture.Source, path, spec.Variant, src, spec.Width, spec.Height, spec.Roughness, spec.Emissive, spec.Alpha)
+				return runnerMaterialRegion(game, texture.Source, path, spec.Variant, src, spec.Width, spec.Height, spec.Roughness, spec.Emissive, spec.Alpha, catalog.Revision)
 			}
 		}
 	}
 	path := runnerAssetPath(spec.FallbackSource)
-	return runnerMaterialRegion(game, spec.FallbackSource, path, spec.Variant, spec.FallbackSrc, spec.Width, spec.Height, spec.Roughness, spec.Emissive, spec.Alpha)
+	return runnerMaterialRegion(game, spec.FallbackSource, path, spec.Variant, spec.FallbackSrc, spec.Width, spec.Height, spec.Roughness, spec.Emissive, spec.Alpha, catalog.Revision)
 }
 
 func runnerCatalogAssetPath(catalog runnerAssetCatalog, source string) string {
@@ -330,8 +336,8 @@ func runnerCatalogAssetPath(catalog runnerAssetCatalog, source string) string {
 	return filepath.Join(catalog.BaseDir, filepath.FromSlash(source))
 }
 
-func runnerMaterialRegion(game *app.Game, name, path, variant string, src image.Rectangle, width, height int, roughness, emissive float32, alpha runnerAlphaFunc) graphics.Material2D {
-	key := runnerProcessedAssetPath(name, variant, src, width, height)
+func runnerMaterialRegion(game *app.Game, name, path, variant string, src image.Rectangle, width, height int, roughness, emissive float32, alpha runnerAlphaFunc, revision int) graphics.Material2D {
+	key := runnerProcessedAssetKey(name, variant, src, width, height, revision)
 	if info, ok := game.Assets.TextureByPath(key); ok {
 		return graphics.Material2D{
 			Albedo:    info.ID,
@@ -348,6 +354,14 @@ func runnerMaterialRegion(game *app.Game, name, path, variant string, src image.
 
 func runnerProcessedAssetPath(name, variant string, src image.Rectangle, width, height int) string {
 	return filepath.Join("generated", "trex_runner", variant, name) + "#" + src.String() + "@" + runnerTextureSizeKey(width, height)
+}
+
+func runnerProcessedAssetKey(name, variant string, src image.Rectangle, width, height, revision int) string {
+	key := runnerProcessedAssetPath(name, variant, src, width, height)
+	if revision <= 0 {
+		return key
+	}
+	return key + "#reload=" + fmt.Sprint(revision)
 }
 
 func runnerTextureSizeKey(width, height int) string {
