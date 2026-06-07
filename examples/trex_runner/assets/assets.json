@@ -1,0 +1,160 @@
+{
+  "version": 1,
+  "textures": [
+    {
+      "name": "sky_dawn",
+      "source": "sky/dawn-sky.png",
+      "pixelsPerUnit": 16,
+      "tileSize": { "w": 16, "h": 16 },
+      "filter": "nearest",
+      "wrap": "clamp_to_edge",
+      "normal": { "neutralFallback": true }
+    },
+    {
+      "name": "sky_noon",
+      "source": "sky/noon-sky.png",
+      "pixelsPerUnit": 16,
+      "tileSize": { "w": 16, "h": 16 },
+      "filter": "nearest",
+      "wrap": "clamp_to_edge",
+      "normal": { "neutralFallback": true }
+    },
+    {
+      "name": "sky_evening",
+      "source": "sky/evening-sky.png",
+      "pixelsPerUnit": 16,
+      "tileSize": { "w": 16, "h": 16 },
+      "filter": "nearest",
+      "wrap": "clamp_to_edge",
+      "normal": { "neutralFallback": true }
+    },
+    {
+      "name": "sky_night",
+      "source": "sky/night-sky.png",
+      "pixelsPerUnit": 16,
+      "tileSize": { "w": 16, "h": 16 },
+      "filter": "nearest",
+      "wrap": "clamp_to_edge",
+      "normal": { "neutralFallback": true }
+    },
+    {
+      "name": "sun",
+      "source": "sun.png",
+      "pixelsPerUnit": 16,
+      "tileSize": { "w": 16, "h": 16 },
+      "filter": "nearest",
+      "wrap": "clamp_to_edge",
+      "normal": { "neutralFallback": true }
+    },
+    {
+      "name": "moon",
+      "source": "moon.png",
+      "pixelsPerUnit": 16,
+      "tileSize": { "w": 16, "h": 16 },
+      "filter": "nearest",
+      "wrap": "clamp_to_edge",
+      "normal": { "neutralFallback": true }
+    },
+    {
+      "name": "road",
+      "source": "road.png",
+      "pixelsPerUnit": 16,
+      "tileSize": { "w": 16, "h": 16 },
+      "filter": "nearest",
+      "wrap": "clamp_to_edge",
+      "normal": { "neutralFallback": true }
+    },
+    {
+      "name": "rock",
+      "source": "rock.png",
+      "pixelsPerUnit": 16,
+      "tileSize": { "w": 16, "h": 16 },
+      "filter": "nearest",
+      "wrap": "clamp_to_edge",
+      "normal": { "neutralFallback": true }
+    },
+    {
+      "name": "dino",
+      "source": "dino.png",
+      "pixelsPerUnit": 16,
+      "tileSize": { "w": 16, "h": 16 },
+      "filter": "nearest",
+      "wrap": "clamp_to_edge",
+      "normal": { "neutralFallback": true }
+    }
+  ],
+  "sprites": [
+    {
+      "name": "sky_dawn_full",
+      "texture": "sky_dawn",
+      "rect": { "x": 0, "y": 0, "w": 1672, "h": 941 },
+      "pivot": { "x": 0.5, "y": 0.5 }
+    },
+    {
+      "name": "sky_noon_full",
+      "texture": "sky_noon",
+      "rect": { "x": 0, "y": 0, "w": 1672, "h": 941 },
+      "pivot": { "x": 0.5, "y": 0.5 }
+    },
+    {
+      "name": "sky_evening_full",
+      "texture": "sky_evening",
+      "rect": { "x": 0, "y": 0, "w": 1672, "h": 941 },
+      "pivot": { "x": 0.5, "y": 0.5 }
+    },
+    {
+      "name": "sky_night_full",
+      "texture": "sky_night",
+      "rect": { "x": 0, "y": 0, "w": 1672, "h": 941 },
+      "pivot": { "x": 0.5, "y": 0.5 }
+    },
+    {
+      "name": "sun_disc",
+      "texture": "sun",
+      "rect": { "x": 130, "y": 70, "w": 800, "h": 890 },
+      "pivot": { "x": 0.5, "y": 0.5 }
+    },
+    {
+      "name": "moon_disc",
+      "texture": "moon",
+      "rect": { "x": 120, "y": 80, "w": 810, "h": 860 },
+      "pivot": { "x": 0.5, "y": 0.5 }
+    },
+    {
+      "name": "road_strip",
+      "texture": "road",
+      "rect": { "x": 0, "y": 390, "w": 1536, "h": 260 },
+      "pivot": { "x": 0.5, "y": 0.5 }
+    },
+    {
+      "name": "rock_obstacle",
+      "texture": "rock",
+      "rect": { "x": 300, "y": 285, "w": 920, "h": 535 },
+      "pivot": { "x": 0.5, "y": 0.5 }
+    },
+    {
+      "name": "dino_run",
+      "texture": "dino",
+      "rect": { "x": 180, "y": 170, "w": 1080, "h": 670 },
+      "pivot": { "x": 0.5, "y": 0.5 }
+    }
+  ],
+  "atlases": [
+    {
+      "name": "trex_runner_runtime",
+      "sprites": [
+        "dino_run",
+        "moon_disc",
+        "road_strip",
+        "rock_obstacle",
+        "sky_dawn_full",
+        "sky_evening_full",
+        "sky_night_full",
+        "sky_noon_full",
+        "sun_disc"
+      ],
+      "padding": 2,
+      "extrusion": 1
+    }
+  ]
+}

@@ -2,9 +2,11 @@ package main
 
 import (
 	"image"
+	"os"
 	"testing"
 
 	"github.com/sarattha/lumago/engine/app"
+	engineassets "github.com/sarattha/lumago/engine/assets"
 	"github.com/sarattha/lumago/engine/graphics"
 )
 
@@ -201,6 +203,72 @@ func TestRunnerLoadsVisualAssetTextures(t *testing.T) {
 		if info.Width*info.Height > 64*64 {
 			t.Fatalf("%s has %d texels, want Vulkan texel lighting path limit <=4096", path, info.Width*info.Height)
 		}
+	}
+}
+
+func TestRunnerLoadsAssetManifest(t *testing.T) {
+	catalog, err := loadRunnerAssetCatalog(defaultAssetMetadataPath)
+	if err != nil {
+		t.Fatalf("loadRunnerAssetCatalog returned error: %v", err)
+	}
+	if !catalog.Ready {
+		t.Fatal("asset catalog is not ready")
+	}
+	if len(catalog.Manifest.Textures) != 9 || len(catalog.Manifest.Sprites) != 9 {
+		t.Fatalf("manifest textures=%d sprites=%d, want 9 each", len(catalog.Manifest.Textures), len(catalog.Manifest.Sprites))
+	}
+	sprite, ok := catalog.SpritesByName["dino_run"]
+	if !ok {
+		t.Fatal("dino_run sprite missing from manifest")
+	}
+	if sprite.Rect != (engineassets.AssetRect{X: 180, Y: 170, W: 1080, H: 670}) {
+		t.Fatalf("dino_run rect=%+v", sprite.Rect)
+	}
+	texture, ok := catalog.TexturesByID[sprite.TextureID]
+	if !ok {
+		t.Fatalf("texture id %q missing for dino_run", sprite.TextureID)
+	}
+	if texture.Filter != "nearest" || texture.Wrap != "clamp_to_edge" {
+		t.Fatalf("dino texture sampling=%s/%s, want nearest/clamp_to_edge", texture.Filter, texture.Wrap)
+	}
+	if texture.TileSize.W != 16 || texture.TileSize.H != 16 || texture.PixelsPerUnit != 16 {
+		t.Fatalf("dino texture profile ppu=%d tile=%+v, want 16 and 16x16", texture.PixelsPerUnit, texture.TileSize)
+	}
+	if len(catalog.Manifest.Atlases) != 1 || catalog.Manifest.Atlases[0].Padding != 2 || catalog.Manifest.Atlases[0].Extrusion != 1 {
+		t.Fatalf("atlas bleed metadata missing: %+v", catalog.Manifest.Atlases)
+	}
+	if len(catalog.Manifest.NormalMaps) != 9 {
+		t.Fatalf("neutral fallback normals=%d, want 9", len(catalog.Manifest.NormalMaps))
+	}
+}
+
+func TestRunnerConfigAcceptsAssetMetadataOverride(t *testing.T) {
+	t.Setenv("LUMAGO_ASSET_METADATA", "custom/assets.json")
+
+	config := defaultRunnerConfig()
+	applyRunnerEnvironment(&config)
+
+	if config.AssetMetadata != "custom/assets.json" {
+		t.Fatalf("asset metadata path=%q, want environment override", config.AssetMetadata)
+	}
+}
+
+func TestPrepareRunnerAssetsEnablesDevelopmentHotReload(t *testing.T) {
+	config := defaultRunnerConfig()
+	config.Development = true
+
+	catalog, reloader, err := prepareRunnerAssets(config)
+	if err != nil {
+		t.Fatalf("prepareRunnerAssets returned error: %v", err)
+	}
+	if !catalog.Ready {
+		t.Fatal("catalog is not ready")
+	}
+	if reloader == nil {
+		t.Fatal("development mode did not create a hot reloader")
+	}
+	if _, err := os.Stat(reloader.BaseDir()); err != nil {
+		t.Fatalf("reloader base dir is invalid: %v", err)
 	}
 }
 

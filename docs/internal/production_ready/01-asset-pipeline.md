@@ -14,22 +14,22 @@ same kind of repeatable import contract without requiring a full editor first.
 
 ## Task Checklists
 
-- [ ] Define asset metadata files for textures, sprites, atlases, normal maps,
+- [x] Define asset metadata files for textures, sprites, atlases, normal maps,
       animation frames, fonts, and tilemap sources.
-- [ ] Add first-class `PixelsPerUnit` and `TileSize` settings, with `16x16` as a
+- [x] Add first-class `PixelsPerUnit` and `TileSize` settings, with `16x16` as a
       documented supported tile profile.
-- [ ] Support sprite sheet slicing with explicit rectangles, pivots, names, and
+- [x] Support sprite sheet slicing with explicit rectangles, pivots, names, and
       source texture references.
-- [ ] Add atlas packing metadata with padding and extrusion to prevent texture
+- [x] Add atlas packing metadata with padding and extrusion to prevent texture
       bleeding.
-- [ ] Add filter and wrap settings, including nearest-neighbor defaults for pixel
+- [x] Add filter and wrap settings, including nearest-neighbor defaults for pixel
       art.
-- [ ] Add normal-map pairing conventions, such as `hero.png` plus `hero_n.png`,
+- [x] Add normal-map pairing conventions, such as `hero.png` plus `hero_n.png`,
       with explicit override metadata.
-- [ ] Introduce deterministic asset IDs that do not depend on runtime load order.
-- [ ] Add generated asset manifests for runtime loading.
-- [ ] Add development hot reload for changed metadata and source images.
-- [ ] Add validation errors for missing files, duplicate sprite names, invalid
+- [x] Introduce deterministic asset IDs that do not depend on runtime load order.
+- [x] Add generated asset manifests for runtime loading.
+- [x] Add development hot reload for changed metadata and source images.
+- [x] Add validation errors for missing files, duplicate sprite names, invalid
       rectangles, mismatched normal-map sizes, and unsupported formats.
 
 ## Exception Criteria

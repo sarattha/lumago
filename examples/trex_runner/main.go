@@ -3,10 +3,12 @@ package main
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"runtime"
 	"time"
 
 	"github.com/sarattha/lumago/engine/app"
+	engineassets "github.com/sarattha/lumago/engine/assets"
 	"github.com/sarattha/lumago/engine/input"
 	"github.com/sarattha/lumago/engine/platform/desktop"
 	"github.com/sarattha/lumago/engine/renderer"
@@ -31,6 +33,11 @@ func main() {
 	runtime.LockOSThread()
 
 	config := loadRunnerConfig(defaultConfigPath)
+	catalog, hotReloader, err := prepareRunnerAssets(config)
+	if err != nil {
+		panic(err)
+	}
+	config.AssetCatalog = catalog
 	game := app.NewGame(app.Config{
 		Width:     config.Width,
 		Height:    config.Height,
@@ -72,6 +79,15 @@ func main() {
 	controls := runnerControls{}
 	frame := 0
 	game.SetUpdateFunc(func(dt time.Duration) error {
+		if hotReloader != nil {
+			manifest, changed, err := hotReloader.ReloadChanged()
+			if err != nil {
+				return err
+			}
+			if changed {
+				config.AssetCatalog = runnerAssetCatalogFromManifest(manifest, hotReloader.BaseDir())
+			}
+		}
 		if reader != nil && reader.KeyDown(input.KeyEscape) {
 			return errRunnerQuit
 		}
@@ -84,7 +100,7 @@ func main() {
 		return nil
 	})
 
-	err := game.Run()
+	err = game.Run()
 	if err != nil && err != errRunnerFrameLimit && err != errRunnerQuit {
 		panic(err)
 	}
@@ -110,6 +126,34 @@ func main() {
 		stats.HotPathAllocBytes,
 		stats.DebugView,
 	)
+}
+
+func prepareRunnerAssets(config runnerConfig) (runnerAssetCatalog, *runnerAssetHotReloader, error) {
+	metadataPath := resolveRunnerAssetMetadataPath(config.AssetMetadata)
+	catalog, err := loadRunnerAssetCatalog(metadataPath)
+	if err != nil {
+		return runnerAssetCatalog{}, nil, err
+	}
+	if !config.Development {
+		return catalog, nil, nil
+	}
+	reloader, manifest, err := engineassets.NewHotReloader(metadataPath)
+	if err != nil {
+		return runnerAssetCatalog{}, nil, err
+	}
+	return runnerAssetCatalogFromManifest(manifest, filepath.Dir(metadataPath)), &runnerAssetHotReloader{
+		HotReloader: reloader,
+		baseDir:     filepath.Dir(metadataPath),
+	}, nil
+}
+
+type runnerAssetHotReloader struct {
+	*engineassets.HotReloader
+	baseDir string
+}
+
+func (r *runnerAssetHotReloader) BaseDir() string {
+	return r.baseDir
 }
 
 func (c *runnerControls) read(reader keyReader) runnerInput {

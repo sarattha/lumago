@@ -9,7 +9,11 @@ import (
 	"github.com/sarattha/lumago/engine/graphics"
 )
 
-const defaultConfigPath = "examples/trex_runner/lumago.conf"
+const (
+	defaultConfigPath         = "examples/trex_runner/lumago.conf"
+	defaultAssetMetadataPath  = "examples/trex_runner/assets/assets.json"
+	fallbackAssetMetadataPath = "assets/assets.json"
+)
 
 type runnerConfig struct {
 	Width            int
@@ -23,6 +27,8 @@ type runnerConfig struct {
 	FrameLimit       int
 	DiagnosticsEvery int
 	ShaderDirectory  string
+	AssetMetadata    string
+	AssetCatalog     runnerAssetCatalog
 	VulkanValidation bool
 }
 
@@ -36,6 +42,7 @@ func defaultRunnerConfig() runnerConfig {
 		DebugOverlay:     true,
 		DiagnosticsEvery: 60,
 		ShaderDirectory:  "shaders/bin",
+		AssetMetadata:    defaultAssetMetadataPath,
 	}
 }
 
@@ -80,6 +87,9 @@ func applyRunnerEnvironment(config *runnerConfig) {
 	if value := os.Getenv("LUMAGO_VULKAN_VALIDATION"); value != "" {
 		config.VulkanValidation = parseRunnerBool(value)
 	}
+	if value := os.Getenv("LUMAGO_ASSET_METADATA"); value != "" {
+		config.AssetMetadata = value
+	}
 }
 
 func applyRunnerConfigValue(config *runnerConfig, key string, value string) {
@@ -106,6 +116,8 @@ func applyRunnerConfigValue(config *runnerConfig, key string, value string) {
 		config.DiagnosticsEvery = parseRunnerInt(value, config.DiagnosticsEvery)
 	case "shader_directory":
 		config.ShaderDirectory = value
+	case "asset_metadata":
+		config.AssetMetadata = value
 	case "vulkan_validation":
 		config.VulkanValidation = parseRunnerBool(value)
 	}

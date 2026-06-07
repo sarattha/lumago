@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/sarattha/lumago/engine/app"
+	engineassets "github.com/sarattha/lumago/engine/assets"
 	"github.com/sarattha/lumago/engine/graphics"
 	lmath "github.com/sarattha/lumago/engine/math"
 	"github.com/sarattha/lumago/engine/scene"
@@ -227,7 +228,7 @@ func buildRunnerScene(game *app.Game, state runnerState, config runnerConfig) *s
 		DebugView:  config.DebugView,
 		ShadowMode: config.ShadowMode,
 	})
-	materials := runnerMaterials(game)
+	materials := runnerMaterials(game, config)
 	addRunnerSky(world, state, materials)
 	addRunnerTrack(world, state, materials)
 	addRunnerObstacles(world, state, materials)
@@ -238,24 +239,125 @@ func buildRunnerScene(game *app.Game, state runnerState, config runnerConfig) *s
 	return world
 }
 
-func runnerMaterials(game *app.Game) runnerMaterialSet {
+type runnerAssetCatalog struct {
+	Ready         bool
+	BaseDir       string
+	Manifest      engineassets.AssetManifest
+	TexturesByID  map[string]engineassets.ManifestTexture
+	SpritesByName map[string]engineassets.ManifestSprite
+}
+
+type runnerMaterialSpec struct {
+	Sprite         string
+	Variant        string
+	FallbackSource string
+	FallbackSrc    image.Rectangle
+	Width          int
+	Height         int
+	Roughness      float32
+	Emissive       float32
+	Alpha          runnerAlphaFunc
+}
+
+func runnerMaterials(game *app.Game, config runnerConfig) runnerMaterialSet {
+	catalog := config.AssetCatalog
+	if !catalog.Ready {
+		if loaded, err := loadRunnerAssetCatalog(config.AssetMetadata); err == nil {
+			catalog = loaded
+		}
+	}
 	return runnerMaterialSet{
-		SkyDawn:    runnerMaterialRegion(game, "sky/dawn-sky.png", "sky", image.Rect(0, 0, 1672, 941), 64, 36, 0.92, 0.10, runnerKeepOpaque),
-		SkyNoon:    runnerMaterialRegion(game, "sky/noon-sky.png", "sky", image.Rect(0, 0, 1672, 941), 64, 36, 0.92, 0.16, runnerKeepOpaque),
-		SkyEvening: runnerMaterialRegion(game, "sky/evening-sky.png", "sky", image.Rect(0, 0, 1672, 941), 64, 36, 0.92, 0.12, runnerKeepOpaque),
-		SkyNight:   runnerMaterialRegion(game, "sky/night-sky.png", "sky", image.Rect(0, 0, 1672, 941), 64, 36, 0.92, 0.04, runnerKeepOpaque),
-		Sun:        runnerMaterialRegion(game, "sun.png", "sun", image.Rect(130, 70, 930, 960), 56, 64, 0.25, 2.8, runnerBrightAlpha),
-		Moon:       runnerMaterialRegion(game, "moon.png", "moon", image.Rect(120, 80, 930, 940), 56, 64, 0.30, 1.8, runnerBrightAlpha),
-		Road:       runnerMaterialRegion(game, "road.png", "road", image.Rect(0, 390, 1536, 650), 64, 14, 0.58, 0.03, runnerKeepOpaque),
-		Rock:       runnerMaterialRegion(game, "rock.png", "rock", image.Rect(300, 285, 1220, 820), 56, 40, 0.68, 0.04, runnerRockAlpha),
-		Dino:       runnerMaterialRegion(game, "dino.png", "dino", image.Rect(180, 170, 1260, 840), 64, 40, 0.42, 0.10, runnerDinoAlpha),
+		SkyDawn: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
+			Sprite: "sky_dawn_full", Variant: "sky", FallbackSource: "sky/dawn-sky.png", FallbackSrc: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36, Roughness: 0.92, Emissive: 0.10, Alpha: runnerKeepOpaque,
+		}),
+		SkyNoon: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
+			Sprite: "sky_noon_full", Variant: "sky", FallbackSource: "sky/noon-sky.png", FallbackSrc: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36, Roughness: 0.92, Emissive: 0.16, Alpha: runnerKeepOpaque,
+		}),
+		SkyEvening: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
+			Sprite: "sky_evening_full", Variant: "sky", FallbackSource: "sky/evening-sky.png", FallbackSrc: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36, Roughness: 0.92, Emissive: 0.12, Alpha: runnerKeepOpaque,
+		}),
+		SkyNight: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
+			Sprite: "sky_night_full", Variant: "sky", FallbackSource: "sky/night-sky.png", FallbackSrc: image.Rect(0, 0, 1672, 941), Width: 64, Height: 36, Roughness: 0.92, Emissive: 0.04, Alpha: runnerKeepOpaque,
+		}),
+		Sun: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
+			Sprite: "sun_disc", Variant: "sun", FallbackSource: "sun.png", FallbackSrc: image.Rect(130, 70, 930, 960), Width: 56, Height: 64, Roughness: 0.25, Emissive: 2.8, Alpha: runnerBrightAlpha,
+		}),
+		Moon: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
+			Sprite: "moon_disc", Variant: "moon", FallbackSource: "moon.png", FallbackSrc: image.Rect(120, 80, 930, 940), Width: 56, Height: 64, Roughness: 0.30, Emissive: 1.8, Alpha: runnerBrightAlpha,
+		}),
+		Road: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
+			Sprite: "road_strip", Variant: "road", FallbackSource: "road.png", FallbackSrc: image.Rect(0, 390, 1536, 650), Width: 64, Height: 14, Roughness: 0.58, Emissive: 0.03, Alpha: runnerKeepOpaque,
+		}),
+		Rock: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
+			Sprite: "rock_obstacle", Variant: "rock", FallbackSource: "rock.png", FallbackSrc: image.Rect(300, 285, 1220, 820), Width: 56, Height: 40, Roughness: 0.68, Emissive: 0.04, Alpha: runnerRockAlpha,
+		}),
+		Dino: runnerMaterialFromSpec(game, catalog, runnerMaterialSpec{
+			Sprite: "dino_run", Variant: "dino", FallbackSource: "dino.png", FallbackSrc: image.Rect(180, 170, 1260, 840), Width: 64, Height: 40, Roughness: 0.42, Emissive: 0.10, Alpha: runnerDinoAlpha,
+		}),
 	}
 }
 
 type runnerAlphaFunc func(x, y, width, height int, color lmath.Color) float32
 
-func runnerMaterialRegion(game *app.Game, name, variant string, src image.Rectangle, width, height int, roughness, emissive float32, alpha runnerAlphaFunc) graphics.Material2D {
-	path := runnerAssetPath(name)
+func loadRunnerAssetCatalog(path string) (runnerAssetCatalog, error) {
+	metadataPath := resolveRunnerAssetMetadataPath(path)
+	manifest, err := engineassets.ImportAssetMetadataFile(metadataPath)
+	if err != nil {
+		return runnerAssetCatalog{}, err
+	}
+	return runnerAssetCatalogFromManifest(manifest, filepath.Dir(metadataPath)), nil
+}
+
+func runnerAssetCatalogFromManifest(manifest engineassets.AssetManifest, baseDir string) runnerAssetCatalog {
+	catalog := runnerAssetCatalog{
+		Ready:         true,
+		BaseDir:       baseDir,
+		Manifest:      manifest,
+		TexturesByID:  make(map[string]engineassets.ManifestTexture, len(manifest.Textures)),
+		SpritesByName: make(map[string]engineassets.ManifestSprite, len(manifest.Sprites)),
+	}
+	for _, texture := range manifest.Textures {
+		catalog.TexturesByID[texture.ID] = texture
+	}
+	for _, sprite := range manifest.Sprites {
+		catalog.SpritesByName[sprite.Name] = sprite
+	}
+	return catalog
+}
+
+func resolveRunnerAssetMetadataPath(path string) string {
+	if path != "" {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+	if _, err := os.Stat(defaultAssetMetadataPath); err == nil {
+		return defaultAssetMetadataPath
+	}
+	return fallbackAssetMetadataPath
+}
+
+func runnerMaterialFromSpec(game *app.Game, catalog runnerAssetCatalog, spec runnerMaterialSpec) graphics.Material2D {
+	if catalog.Ready {
+		if sprite, ok := catalog.SpritesByName[spec.Sprite]; ok {
+			if texture, ok := catalog.TexturesByID[sprite.TextureID]; ok {
+				path := runnerCatalogAssetPath(catalog, texture.Source)
+				src := image.Rect(sprite.Rect.X, sprite.Rect.Y, sprite.Rect.X+sprite.Rect.W, sprite.Rect.Y+sprite.Rect.H)
+				return runnerMaterialRegion(game, texture.Source, path, spec.Variant, src, spec.Width, spec.Height, spec.Roughness, spec.Emissive, spec.Alpha)
+			}
+		}
+	}
+	return runnerMaterialRegion(game, spec.FallbackSource, runnerAssetPath(spec.FallbackSource), spec.Variant, spec.FallbackSrc, spec.Width, spec.Height, spec.Roughness, spec.Emissive, spec.Alpha)
+}
+
+func runnerCatalogAssetPath(catalog runnerAssetCatalog, source string) string {
+	if filepath.IsAbs(source) {
+		return source
+	}
+	return filepath.Join(catalog.BaseDir, filepath.FromSlash(source))
+}
+
+func runnerMaterialRegion(game *app.Game, name, path, variant string, src image.Rectangle, width, height int, roughness, emissive float32, alpha runnerAlphaFunc) graphics.Material2D {
 	key := runnerProcessedAssetPath(name, variant, src, width, height)
 	if info, ok := game.Assets.TextureByPath(key); ok {
 		return graphics.Material2D{
