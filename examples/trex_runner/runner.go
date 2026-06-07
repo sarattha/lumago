@@ -57,7 +57,6 @@ type runnerObstacleKind uint8
 const (
 	runnerObstacleCactus runnerObstacleKind = iota
 	runnerObstacleCactusCluster
-	runnerObstacleBird
 )
 
 type runnerObstacle struct {
@@ -542,14 +541,12 @@ func addRunnerObstacles(world *scene.Scene, state runnerState, materials runnerM
 }
 
 func addRunnerRock(world *scene.Scene, materials runnerMaterialSet, x, height, scale, rotation float32) {
-	addRunnerRect(world, x, runnerGroundY-5, 78*scale, 18*scale, lmath.Color{R: 0.03, G: 0.03, B: 0.03, A: 0.45}, 7, 0)
 	addRunnerSpriteRotated(world, materials.Rock, lmath.Rect{W: 1, H: 1}, x, runnerGroundY+height/2-3, height*1.28*scale, height*scale, rotation, lmath.White(), 9, 0.02)
 }
 
 func addRunnerDino(world *scene.Scene, state runnerState, materials runnerMaterialSet) {
 	rect := state.playerRect()
 	x := rect.X + rect.W/2
-	addRunnerRect(world, x, state.PlayerBottom-10, 126, 18, lmath.Color{R: 0.00, G: 0.00, B: 0.00, A: 0.45}, 7, 0)
 	if state.Ducking {
 		addRunnerSprite(world, materials.Dino, lmath.Rect{W: 1, H: 1}, x+6, state.PlayerBottom+48, 168, 118, lmath.White(), 13, 0.12)
 		return

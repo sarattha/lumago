@@ -140,7 +140,7 @@ func TestRunnerSceneUsesReadableSpriteRolesWithoutLighting(t *testing.T) {
 	state := newRunnerState()
 	world := buildRunnerScene(game, state, config)
 
-	if len(world.Sprites()) < 45 {
+	if len(world.Sprites()) < 41 {
 		t.Fatalf("sprites=%d, want composed runner graphics", len(world.Sprites()))
 	}
 	if len(world.Lights()) != 0 {
@@ -150,6 +150,9 @@ func TestRunnerSceneUsesReadableSpriteRolesWithoutLighting(t *testing.T) {
 		t.Fatalf("occluders=%d, want no runner shadow occluders", len(world.Occluders()))
 	}
 	counts := countRunnerLayers(world.Sprites())
+	if counts[7] != 0 {
+		t.Fatalf("ground shadow sprites=%d, want none", counts[7])
+	}
 	if counts[13] < 1 {
 		t.Fatalf("dino sprite missing: layers=%v", counts)
 	}
